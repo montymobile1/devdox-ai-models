@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "devdox-ai-models"
+version = "0.1.0"
+description = "Shared Tortoise ORM models for microservices"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "Hayat Bourgi", email = "hayat.bourgi@montyholding.com"}
+]
+
+keywords = ["tortoise", "orm", "microservices", "async", "database"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: AsyncIO",
+    "Framework :: FastAPI",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "tortoise-orm>=0.20.0",
+    "pydantic>=2.0.0",
+    "tortoise-orm>=0.20.0",
+    "asyncpg>=0.28.0",
+    "aerich>=0.7.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "flake8>=4.0.0",
+    "mypy>=1.0.0",
+    "isort>=5.12.0",
+    "pre-commit>=3.0.0",
+]
+postgresql = [
+    "asyncpg>=0.28.0",
+]
+
+all = [
+    "tortoise-models[mysql,postgresql,sqlite]",
+]
+
+[project.urls]
+Homepage = "https://github.com/montymobile1/devdox-ai-models"
+Repository = "https://github.com/montymobile1/devdox-ai-models.git"
+
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["devdox-ai-models*"]
+exclude = ["tests*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?

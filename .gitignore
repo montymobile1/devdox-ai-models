@@ -1,0 +1,11 @@
+build
+build/*
+dist/
+dist/*
+models.egg-info/
+models.egg-info/*
+venv/
+venv/*
+__pycache__/
+__pycache__/*
+*.pyc
