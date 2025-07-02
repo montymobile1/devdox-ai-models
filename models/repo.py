@@ -68,6 +68,12 @@ class Repo(Model):
     relative_path = fields.CharField(
         max_length=255, null=True, description="The path to the repository relative to its hosting platform domain"
     )
+    total_files = fields.IntField(default=0, description="Total files processed")
+    total_chunks = fields.IntField(default=0, description="Total code chunks created")
+    processing_start_time = fields.DatetimeField(null=True)
+    processing_end_time = fields.DatetimeField(null=True)
+    error_message = fields.TextField(null=True, description="Error message if processing failed")
+    last_commit = fields.CharField(max_length=255, default="")
     
     class Meta:
         table = "repo"
