@@ -66,7 +66,7 @@ class Repo(Model):
     )
     
     relative_path = fields.CharField(
-        max_length=255, null=True, description="The path to the repository relative to its hosting platform domain"
+        max_length=1024, null=True, description="The path to the repository relative to its hosting platform domain"
     )
     total_files = fields.IntField(default=0, description="Total files processed")
     total_chunks = fields.IntField(default=0, description="Total code chunks created")
