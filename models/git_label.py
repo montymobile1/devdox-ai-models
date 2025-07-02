@@ -41,7 +41,9 @@ class GitLabel(Model):
         table_description = (
             "Table for storing git hosting service configurations per user"
         )
-
+        
+        unique_together = (("user_id", "git_hosting", "masked_token"),)
+        
     def __str__(self):
         return (
             f"GitLabel(id={self.id}, user_id={self.user_id}, "
