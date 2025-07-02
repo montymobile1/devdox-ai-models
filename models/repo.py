@@ -58,17 +58,27 @@ class Repo(Model):
     )
 
     # Additional metadata
-    language = fields.CharField(
-        max_length=100, null=True, description="Primary programming language"
+    language = fields.JSONField(null=True, description="Primary programming languages")
+    
+    size = fields.IntField(
+        null=True,
+        description="Size of the Git repository in bytes. Represents only the .git directory contents, including commit history, branches, and git objects. Does not include release assets, LFS files, CI artifacts, or other non-Git storage"
     )
-    size = fields.IntField(null=True, description="Repository size in KB")
-
+    
+    relative_path = fields.CharField(
+        max_length=255, null=True, description="The path to the repository relative to its hosting platform domain"
+    )
+    
     class Meta:
         table = "repo"
         table_description = "Repository information from Git providers"
         indexes = [
             ("user_id", "created_at"),
         ]
+        
+        unique_together = (
+            ("user_id", "repo_id"),
+        )
 
     def __str__(self):
         return f"{self.repo_name} "
