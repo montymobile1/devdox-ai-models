@@ -74,6 +74,7 @@ class Repo(Model):
     processing_end_time = fields.DatetimeField(null=True)
     error_message = fields.TextField(null=True, description="Error message if processing failed")
     last_commit = fields.CharField(max_length=255, default="")
+    status = fields.CharField(max_length=255, default="pending")
     
     class Meta:
         table = "repo"
