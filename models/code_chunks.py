@@ -1,6 +1,6 @@
 import uuid
 from tortoise.models import Model
-from tortoise_vector.fields import VectorField
+from tortoise_vector.field import VectorField
 from tortoise import fields
 
 
@@ -18,8 +18,8 @@ class CodeChunks(Model):
     )
     content = fields.TextField(required=True, null=False)
 
-    embedding = fields.VectorField(
-        dimension=1536, null=True, description="Vector embedding of the content"
+    embedding = VectorField(
+        vector_size=1536, null=True, description="Vector embedding of the content"
     )
     metadata = fields.JSONField(default=dict)
     file_name = fields.CharField(
