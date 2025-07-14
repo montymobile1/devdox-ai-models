@@ -1,6 +1,6 @@
 import uuid
 from tortoise.models import Model
-from tortoise_vector import VectorField
+from tortoise_vector.fields import VectorField
 from tortoise import fields
 
 
