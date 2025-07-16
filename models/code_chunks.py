@@ -1,6 +1,6 @@
 import uuid
 from tortoise.models import Model
-from tortoise_vector.field import VectorField
+from typing import List, Optional
 from tortoise import fields
 
 
@@ -18,9 +18,7 @@ class CodeChunks(Model):
     )
     content = fields.TextField(required=True, null=False)
 
-    embedding = VectorField(
-        vector_size=1536, null=True, description="Vector embedding of the content"
-    )
+    embedding = fields.JSONField(null=True, description="Vector embedding as JSON array")
     metadata = fields.JSONField(default=dict)
     file_name = fields.CharField(
         required=True, max_length=255, null=False, description="File name"
@@ -50,6 +48,18 @@ class CodeChunks(Model):
             f"CodeChunks(id={self.id}, user_id={self.user_id}, "
             f"repo_id={self.repo_id})"
         )
+
+    @property
+    def embedding_json(self) -> Optional[List[float]]:
+        """Get embedding as a list of floats."""
+        if self.embedding is None:
+            return None
+        return self.embedding
+
+    @embedding_json.setter
+    def embedding_json(self, value: Optional[List[float]]):
+        """Set embedding from a list of floats."""
+        self.embedding = value
 
     def __repr__(self):
         return self.__str__()
