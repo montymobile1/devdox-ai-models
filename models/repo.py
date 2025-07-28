@@ -10,7 +10,7 @@ class Repo(Model):
 
     id = fields.UUIDField(primary_key=True, default=uuid.uuid4)
     user_id = fields.CharField(
-        unique=True, max_length=255, description="User ID who owns this repository"
+     max_length=255, description="User ID who owns this repository"
     )
 
     # Repository basic information
