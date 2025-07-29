@@ -76,6 +76,22 @@ class Repo(Model):
     last_commit = fields.CharField(max_length=255, default="")
     status = fields.CharField(max_length=255, default="pending")
     
+    repo_alias_name = fields.CharField(
+        max_length=100,
+        null=True,
+        description="A user-defined alias for this repository, used locally within this system as an alternative to the official GitHub or GitLab repository name."
+    )
+
+    repo_user_reference = fields.TextField(
+        null=True,
+        description="An optional free-form description or note for this repository. Use this to explain its purpose, provide internal context, or document team-specific information."
+    )
+    
+    repo_system_reference = fields.TextField(
+        null=True,
+        description="An optional System generated (no user intervention required) description or note for this repository. Explaining its purpose, provide internal context, or document team-specific information."
+    )
+    
     class Meta:
         table = "repo"
         table_description = "Repository information from Git providers"
