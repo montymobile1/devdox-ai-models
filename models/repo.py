@@ -87,6 +87,10 @@ class Repo(Model):
         description="An optional free-form description or note for this repository. Use this to explain its purpose, provide internal context, or document team-specific information."
     )
     
+    repo_system_reference = fields.TextField(
+        null=True,
+        description="An optional System generated (no user intervention required) description or note for this repository. Explaining its purpose, provide internal context, or document team-specific information."
+    )
     
     class Meta:
         table = "repo"
