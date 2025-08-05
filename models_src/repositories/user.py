@@ -7,7 +7,9 @@ from models_src.models import User
 
 
 class IUserStore(Protocol):
-    pass
+
+    @abstractmethod
+    async def find_by_user_id(self, user_id: str) -> Optional[UserResponseDTO]: ...
 
 
 class TortoiseUserStore(IUserStore):
@@ -27,4 +29,11 @@ class TortoiseUserStore(IUserStore):
         """
         pass
 
-    pass
+    async def find_by_user_id(self, user_id: str) -> Optional[UserResponseDTO]:
+        if not user_id or not user_id.strip():
+            return None
+
+        model_data = await self.model.filter(user_id=user_id).first()
+        mapped_model_to_dto = self.model_mapper.map_model_to_dataclass(model_data, UserResponseDTO)
+        
+        return mapped_model_to_dto
