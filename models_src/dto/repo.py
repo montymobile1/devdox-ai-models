@@ -4,9 +4,11 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
+
 class GitHosting(str, Enum):
     GITLAB = "gitlab"
     GITHUB = "github"
+
 
 @dataclass
 class RepoResponseDTO:
@@ -39,3 +41,56 @@ class RepoResponseDTO:
     repo_alias_name: Optional[str] = None
     repo_user_reference: Optional[str] = None
     repo_system_reference: Optional[str] = None
+
+
+@dataclass
+class RepoRequestDTO:
+
+    # Ownership
+    user_id: str
+
+    # Repository basic information
+    repo_id: str
+    repo_name: str
+    description: str
+    html_url: str
+
+    # Repository metadata
+    default_branch: str
+    forks_count: int
+    stargazers_count: int
+
+    # Visibility/Privacy settings
+    is_private: bool
+    visibility: str
+
+    # Git provider information
+    token_id: str
+
+    # Timestamps (external from Git provider)
+    repo_created_at: datetime.datetime
+
+    # Additional metadata
+    language: List[str]
+
+    size: int
+    relative_path: str
+
+    # Custom naming and references
+    repo_alias_name: str
+    repo_user_reference: Optional[str] = None
+
+    total_files: Optional[int] = None
+    total_chunks: Optional[int] = None
+
+    error_message: Optional[str] = None
+
+    last_commit: Optional[str] = None
+
+    updated_at: Optional[datetime.datetime] = None
+    created_at: Optional[datetime.datetime] = None
+
+    repo_updated_at: Optional[datetime.datetime] = None
+
+    processing_start_time: Optional[datetime.datetime] = None
+    processing_end_time: Optional[datetime.datetime] = None

@@ -4,14 +4,26 @@ from typing import List, Protocol
 
 from tortoise.exceptions import DoesNotExist
 
-from models_src.dto.repo import RepoResponseDTO
+from models_src.dto.repo import RepoRequestDTO, RepoResponseDTO
 from models_src.dto.utils import TortoiseModelMapper
 from models_src.exceptions.utils import internal_error, RepoErrors
 from models_src.models import Repo
 
 
 class IRepoStore(Protocol):
-    pass
+    @abstractmethod
+    async def get_all_by_user(
+        self, user_id: str, offset: int, limit: int
+    ) -> List[RepoResponseDTO]: ...
+
+    @abstractmethod
+    async def count_by_user(self, user_id: str) -> int: ...
+
+    @abstractmethod
+    async def create_new_repo(self, repo_model: RepoRequestDTO) -> RepoResponseDTO: ...
+    
+    @abstractmethod
+    async def get_by_id(self, repo_id: str) -> RepoResponseDTO: ...
 
 class TortoiseRepoStore(IRepoStore):
 
@@ -30,4 +42,35 @@ class TortoiseRepoStore(IRepoStore):
         """
         pass
 
-    pass
+    async def get_all_by_user(
+        self, user_id: str, offset: int, limit: int
+    ) -> List[RepoResponseDTO]:
+
+        list_raw_data = (
+            await self.model.filter(user_id=user_id)
+            .order_by("-created_at")
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+        return self.model_mapper.map_models_to_dataclasses_list(list_raw_data, RepoResponseDTO)
+
+    async def count_by_user(self, user_id: str) -> int:
+        return await self.model.filter(user_id=user_id).count()
+
+    async def create_new_repo(self, repo: RepoRequestDTO) -> RepoResponseDTO:
+
+        saved_raw_data = await self.model.create(**asdict(repo))
+
+        return self.model_mapper.map_model_to_dataclass(saved_raw_data, RepoResponseDTO)
+
+    async def get_by_id(self, repo_id: str) -> RepoResponseDTO:
+        try:
+            raw_data = await self.model.get(id=repo_id)
+        except DoesNotExist as e:
+            raise internal_error(
+                **RepoErrors.REPOSITORY_DOESNT_EXIST.value
+            ) from e
+
+        return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)

@@ -3,6 +3,8 @@ import uuid
 from dataclasses import dataclass
 from typing import Optional
 
+from models_src.dto.repo import GitHosting
+
 
 @dataclass
 class GitLabelResponseDTO:
@@ -15,3 +17,14 @@ class GitLabelResponseDTO:
     masked_token: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+
+@dataclass
+class GitLabelRequestDTO:
+    user_id: str
+    label: str
+    git_hosting: GitHosting
+    username: str
+    token_value: str
+    masked_token: str
+

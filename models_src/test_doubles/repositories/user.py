@@ -4,6 +4,7 @@ from typing import Any, Tuple
 from models_src.dto.user import UserResponseDTO
 from models_src.repositories.user import IUserStore
 
+
 class FakeUserStore(IUserStore):
     def __init__(self):
         self.data_store: dict[Any, UserResponseDTO] = {}
@@ -40,7 +41,11 @@ class FakeUserStore(IUserStore):
     def set_exception(self, method_name: str, exception: Exception):
         self.exceptions[method_name] = exception
 
-    pass
+    async def find_by_user_id(self, user_id: str):
+
+        self.__utility(self.find_by_user_id, (user_id,))
+
+        return self.__get_data_store(user_id=user_id)
 
 
 def make_fake_user(user_id="user123", email="test@example.com", encryption_salt="xyz"):
