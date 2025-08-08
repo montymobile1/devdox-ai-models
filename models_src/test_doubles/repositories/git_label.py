@@ -44,15 +44,16 @@ class FakeGitLabelStore(ILabelStore):
 
         self.total_count = full_total
 
-    def set_exception(self, method_name: str, exception: Exception):
+    def set_exception(self, method, exception: Exception):
+        method_name = method.__name__
         self.exceptions[method_name] = exception
 
-    async def get_git_hosting_map_by_token_id(self, token_ids: Collection[Union[str, UUID]]) -> List[Dict]:
+    async def get_all_git_hosting_only_by_token_id_list(self, token_ids: Collection[Union[str, UUID]]) -> List[Dict]:
 
         if not token_ids:
             return []
 
-        self.__utility(self.get_git_hosting_map_by_token_id, (token_ids, ))
+        self.__utility(self.get_all_git_hosting_only_by_token_id_list, (token_ids,))
 
         match_list = []
         for key, obj_list in self.data_store.items():
@@ -80,8 +81,8 @@ class FakeGitLabelStore(ILabelStore):
 
         return result
 
-    async def get_by_user_id(self, offset, limit, user_id, git_hosting: Optional[str] = None) -> list[GitLabelResponseDTO]:
-        self.__utility(self.get_by_user_id, (offset, limit, user_id, git_hosting))
+    async def get_all_by_user_id(self, offset, limit, user_id, git_hosting: Optional[str] = None) -> list[GitLabelResponseDTO]:
+        self.__utility(self.get_all_by_user_id, (offset, limit, user_id, git_hosting))
         data = self.__get_data_store(user_id=user_id)
         return data[offset : offset + limit]
 
@@ -100,8 +101,8 @@ class FakeGitLabelStore(ILabelStore):
 
         return count
 
-    async def get_by_user_id_and_label(self, offset, limit, user_id, label: str) -> list[GitLabelResponseDTO]:
-        self.__utility(self.get_by_user_id_and_label, (offset, limit, user_id, label))
+    async def get_all_by_user_id_and_label(self, offset, limit, user_id, label: str) -> list[GitLabelResponseDTO]:
+        self.__utility(self.get_all_by_user_id_and_label, (offset, limit, user_id, label))
 
         data = self.__get_data_store(user_id=user_id)
 
@@ -127,9 +128,9 @@ class FakeGitLabelStore(ILabelStore):
         else:
             return len(user_id_data) if user_id_data else 0
 
-    async def create_new(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO:
+    async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO:
 
-        self.__utility(self.create_new, (label_model, ))
+        self.__utility(self.save, (label_model,))
 
         result = GitLabelResponseDTO(**asdict(label_model))
         result.id = uuid.uuid4()
@@ -163,6 +164,54 @@ class FakeGitLabelStore(ILabelStore):
 
         return initial_count - len(data)
 
+class StubGitLabelStore(ILabelStore):
+
+    def __init__(self):
+        self.stubbed_outputs = {}
+        self.received_calls = []  # for optional spy behavior
+        self.exceptions = {}  # method_name -> exception to raise
+
+    async def __stubify(self, method, **kwargs):
+        method_name = method.__name__
+        self.received_calls.append((method_name, kwargs))
+        if method_name in self.exceptions:
+            raise self.exceptions[method_name]
+        return self.stubbed_outputs[method_name]
+
+    def set_output(self, method, output):
+        method_name = method.__name__
+        self.stubbed_outputs[method_name] = output
+
+    def set_exception(self, method, exception: Exception):
+        method_name = method.__name__
+        self.exceptions[method_name] = exception
+
+    async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO:
+        pass
+
+    async def get_all_git_hosting_only_by_token_id_list(self, token_ids: Collection[Union[str, UUID]]) -> List[Dict]:
+        pass
+
+    async def get_all_by_user_id(self, offset, limit, user_id, git_hosting: Optional[str] = None) -> list[
+        GitLabelResponseDTO]:
+        pass
+
+    async def get_all_by_user_id_and_label(self, offset, limit, user_id, label: str) -> list[GitLabelResponseDTO]:
+        pass
+
+    async def count_by_user_id(self, user_id, git_hosting: Optional[str] = None) -> int:
+        pass
+
+    async def count_by_user_id_and_label(self, user_id, label: str) -> int:
+        pass
+
+    async def delete_by_id_and_user_id(self, label_id: uuid.UUID, user_id: str) -> int:
+        pass
+
+    async def get_by_token_id_and_user(self, token_id, user_id):
+        return await self.__stubify(
+            self.get_by_token_id_and_user, token_id=token_id, user_id=user_id
+        )
 
 def make_fake_git_label(**overrides) -> GitLabelResponseDTO:
     now = datetime.datetime.now()

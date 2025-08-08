@@ -21,4 +21,4 @@ class APIKeyRequestDTO:
     user_id: str
     api_key: str
     masked_api_key: str
-    is_active: Optional[str] = None
+    is_active: Optional[bool] = None

@@ -1,3 +1,5 @@
+import datetime
+import uuid
 from dataclasses import asdict
 from typing import Any, List, Tuple
 from uuid import uuid4
@@ -26,7 +28,7 @@ class FakeApiKeyStore(IApiKeyStore):
     def __get_data_store(self, user_id=None):
 
         if user_id:
-            return self.data_store.get(user_id)
+            return self.data_store.get(user_id) or []
 
         return self.data_store
 
@@ -34,7 +36,6 @@ class FakeApiKeyStore(IApiKeyStore):
         self.data_store.setdefault(data.user_id, []).append(data)
 
     def set_fake_data(self, fake_data: list[APIKeyResponseDTO]):
-
         for data in fake_data:
             self.__set_data_store(data)
             self.existing_hash_set.add(data.api_key)
@@ -45,26 +46,29 @@ class FakeApiKeyStore(IApiKeyStore):
 
         self.total_count = full_total
 
-    def set_exception(self, method_name: str, exception: Exception):
+    def set_exception(self, method, exception: Exception):
+        method_name = method.__name__
         self.exceptions[method_name] = exception
 
-    async def query_for_existing_hashes(self, hash_key: str) -> bool:
-        self.__utility(self.query_for_existing_hashes, (hash_key, ))
+    async def exists_by_hash_key(self, hash_key: str) -> bool:
+        self.__utility(self.exists_by_hash_key, (hash_key,))
         return hash_key in self.existing_hash_set
 
-    async def save_api_key(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
-        self.__utility(self.query_for_existing_hashes, (create_model,))
+    async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
+        self.__utility(self.exists_by_hash_key, (create_model,))
 
         response = APIKeyResponseDTO(**asdict(create_model))
         response.id = uuid4()
-
+        response.created_at = datetime.datetime.now(datetime.timezone.utc)
+        
         self.__set_data_store(response)
+        self.existing_hash_set.add(response.api_key)
         self.total_count += 1
 
         return response
 
-    async def set_inactive_by_user_id_and_api_key_id(self, user_id, api_key_id) -> int:
-        self.__utility(self.set_inactive_by_user_id_and_api_key_id, (user_id,api_key_id,))
+    async def update_is_active_by_user_id_and_api_key_id(self, user_id, api_key_id, is_active) -> int:
+        self.__utility(self.update_is_active_by_user_id_and_api_key_id, (user_id, api_key_id,))
 
         if not user_id or not user_id.strip() or not api_key_id:
             return -1
@@ -74,14 +78,14 @@ class FakeApiKeyStore(IApiKeyStore):
         data:list = self.__get_data_store(user_id=user_id)
         
         for index, value in enumerate(data):
-            if value.id == api_key_id and value.is_active:
-                value.is_active = False
+            if uuid.UUID(value.api_key) == api_key_id and value.is_active:
+                value.is_active = is_active
                 updated += 1
         return updated
 
-    async def get_all_api_keys(self, user_id) -> List[APIKeyResponseDTO]:
+    async def get_all_by_user_id(self, user_id) -> List[APIKeyResponseDTO]:
         self.__utility(
-            self.get_all_api_keys,
+            self.get_all_by_user_id,
             (
                 user_id,
             ),

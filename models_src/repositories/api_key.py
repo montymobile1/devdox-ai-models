@@ -11,18 +11,20 @@ from models_src.models import APIKEY
 class IApiKeyStore(Protocol):
 
     @abstractmethod
-    async def query_for_existing_hashes(self, hash_key: str) -> bool: ...
+    async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO: ...
+    
+    @abstractmethod
+    async def get_all_by_user_id(self, user_id) -> List[APIKeyResponseDTO]: ...
+    
+    @abstractmethod
+    async def exists_by_hash_key(self, hash_key: str) -> bool: ...
 
     @abstractmethod
-    async def save_api_key(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO: ...
-
-    @abstractmethod
-    async def set_inactive_by_user_id_and_api_key_id(
-        self, user_id, api_key_id
+    async def update_is_active_by_user_id_and_api_key_id(
+        self, user_id, api_key_id, is_active
     ) -> int: ...
 
-    @abstractmethod
-    async def get_all_api_keys(self, user_id) -> List[APIKeyResponseDTO]: ...
+    
 
 class TortoiseApiKeyStore(IApiKeyStore):
     
@@ -41,7 +43,7 @@ class TortoiseApiKeyStore(IApiKeyStore):
         """
         pass
 
-    async def query_for_existing_hashes(self, hash_key: str) -> bool:
+    async def exists_by_hash_key(self, hash_key: str) -> bool:
         
         if not hash_key or not hash_key.strip():
             return False
@@ -51,21 +53,21 @@ class TortoiseApiKeyStore(IApiKeyStore):
 
         return await self.model.filter(api_key=hash_key).exists()
 
-    async def save_api_key(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
+    async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
         data = await self.model.create(**asdict(create_model))
         return self.model_mapper.map_model_to_dataclass(data, APIKeyResponseDTO)
 
-    async def set_inactive_by_user_id_and_api_key_id(
-        self, user_id: str, api_key_id: uuid.UUID
+    async def update_is_active_by_user_id_and_api_key_id(
+        self, user_id: str, api_key_id: uuid.UUID, is_active: bool
     ) -> int:
         if (not user_id or not user_id.strip()) or not api_key_id:
             return -1
 
         return await self.model.filter(
             user_id=user_id, id=api_key_id, is_active=True
-        ).update(is_active=False)
+        ).update(is_active=is_active)
 
-    async def get_all_api_keys(self, user_id: str) -> List[APIKeyResponseDTO]:
+    async def get_all_by_user_id(self, user_id: str) -> List[APIKeyResponseDTO]:
 
         if not user_id or not user_id.strip():
             return []
