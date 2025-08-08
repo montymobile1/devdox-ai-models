@@ -13,8 +13,12 @@ from models_src.models import GitLabel
 
 
 class ILabelStore(Protocol):
+    
     @abstractmethod
-    async def get_git_hosting_map_by_token_id(
+    async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO: ...
+    
+    @abstractmethod
+    async def get_all_git_hosting_only_by_token_id_list(
         self, token_ids: Collection[Union[str, UUID]]
     ) -> List[Dict]: ...
 
@@ -24,25 +28,22 @@ class ILabelStore(Protocol):
     ) -> GitLabelResponseDTO | None: ...
 
     @abstractmethod
-    async def get_by_user_id(
+    async def get_all_by_user_id(
         self, offset, limit, user_id, git_hosting: Optional[str] = None
     ) -> list[GitLabelResponseDTO]: ...
-
+    
+    @abstractmethod
+    async def get_all_by_user_id_and_label(
+            self, offset, limit, user_id, label: str
+    ) -> list[GitLabelResponseDTO]: ...
+    
     @abstractmethod
     async def count_by_user_id(
         self, user_id, git_hosting: Optional[str] = None
     ) -> int: ...
 
     @abstractmethod
-    async def get_by_user_id_and_label(
-        self, offset, limit, user_id, label: str
-    ) -> list[GitLabelResponseDTO]: ...
-    
-    @abstractmethod
     async def count_by_user_id_and_label(self, user_id, label: str) -> int: ...
-
-    @abstractmethod
-    async def create_new(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO: ...
 
     @abstractmethod
     async def delete_by_id_and_user_id(
@@ -67,7 +68,7 @@ class TortoiseGitLabelStore(ILabelStore):
     model = GitLabel
     model_mapper = TortoiseModelMapper
 
-    async def get_git_hosting_map_by_token_id(
+    async def get_all_git_hosting_only_by_token_id_list(
         self, token_ids: Collection[Union[str, UUID]]
     ) -> List[Dict]:
         if not token_ids:
@@ -94,7 +95,7 @@ class TortoiseGitLabelStore(ILabelStore):
 
         return query
 
-    async def get_by_user_id(
+    async def get_all_by_user_id(
         self, offset, limit, user_id, git_hosting: Optional[str] = None
     ) -> list[GitLabelResponseDTO]:
         query = self.__get_by_user_id_query(user_id, git_hosting)
@@ -126,7 +127,7 @@ class TortoiseGitLabelStore(ILabelStore):
         query = self.__get_by_user_id_and_label_query(user_id, label)
         return await query.count()
 
-    async def get_by_user_id_and_label(
+    async def get_all_by_user_id_and_label(
         self, offset, limit, user_id, label: str
     ) -> list[GitLabelResponseDTO]:
 
@@ -140,7 +141,7 @@ class TortoiseGitLabelStore(ILabelStore):
             git_labels, GitLabelResponseDTO
         )
 
-    async def create_new(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO:
+    async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO:
 
         try:
             model = await self.model.create(**asdict(label_model))

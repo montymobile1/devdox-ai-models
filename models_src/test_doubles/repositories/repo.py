@@ -9,13 +9,16 @@ from models_src.repositories.repo import IRepoStore
 class FakeRepoStore(IRepoStore):
 
     def __init__(self):
-        self.data_store: dict[Any, List[RepoResponseDTO]] = {}
+        self.__data_store: dict[Any, List[RepoResponseDTO]] = {}
         self.total_count = 0
         self.received_calls = []
         self.exceptions = {}
 
-    def __utility(self, method, received_calls:Tuple):
+    @property
+    def data_store(self):
+        return self.__data_store
 
+    def __utility(self, method, received_calls:Tuple):
         method_name = method.__name__
 
         if method_name in self.exceptions:
@@ -25,42 +28,43 @@ class FakeRepoStore(IRepoStore):
 
     def __get_data_store(self, user_id=None):
         if user_id:
-            return self.data_store.get(user_id, [])
+            return self.__data_store.get(user_id, [])
 
-        return self.data_store
-    
+        return self.__data_store
+
     def __set_data_store(self, data:RepoResponseDTO):
-        self.data_store.setdefault(data.user_id, []).append(data)
-    
+        self.__data_store.setdefault(data.user_id, []).append(data)
+
     def set_fake_data(self, fake_data: List[RepoResponseDTO]):
         for data in fake_data:
             self.__set_data_store(data=data)
 
         full_total = 0
-        for values in self.data_store.values():
+        for values in self.__data_store.values():
             full_total = full_total + len(values)
 
         self.total_count = full_total
 
-    def set_exception(self, method_name: str, exception: Exception):
+    def set_exception(self, method, exception: Exception):
+        method_name = method.__name__
         self.exceptions[method_name] = exception
 
-    async def get_all_by_user(self, user_id: str, offset: int, limit: int) -> List[RepoResponseDTO]:
-        self.__utility(self.get_all_by_user, (user_id, offset, limit))
+    async def get_all_by_user_id(self, user_id: str, offset: int, limit: int) -> List[RepoResponseDTO]:
+        self.__utility(self.get_all_by_user_id, (user_id, offset, limit))
 
         data= self.__get_data_store(user_id=user_id)
 
         return data[offset : offset + limit]
 
-    async def count_by_user(self, user_id: str) -> int:
-        self.__utility(self.count_by_user, (user_id, ))
+    async def count_by_user_id(self, user_id: str) -> int:
+        self.__utility(self.count_by_user_id, (user_id,))
 
         data = self.__get_data_store(user_id=user_id)
 
         return len(data)
 
-    async def create_new_repo(self, repo_model: RepoRequestDTO) -> RepoResponseDTO:
-        self.__utility(self.create_new_repo, (repo_model,))
+    async def save(self, repo_model: RepoRequestDTO) -> RepoResponseDTO:
+        self.__utility(self.save, (repo_model,))
 
         response = RepoResponseDTO(**asdict(repo_model))
         response.id = uuid.uuid4()
