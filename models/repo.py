@@ -78,7 +78,6 @@ class Repo(Model):
     
     repo_alias_name = fields.CharField(
         max_length=100,
-        null=True,
         description="A user-defined alias for this repository, used locally within this system as an alternative to the official GitHub or GitLab repository name."
     )
 
