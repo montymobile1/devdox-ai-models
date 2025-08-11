@@ -9,7 +9,7 @@ from models_src.dto.utils import TortoiseModelMapper
 from models_src.models import CodeChunks
 
 
-class CodeChunksStore(Protocol):
+class ICodeChunksStore(Protocol):
 	
 	@abstractmethod
 	async def save(self, create_model: CodeChunksRequestDTO) -> CodeChunksResponseDTO: ...
@@ -17,7 +17,7 @@ class CodeChunksStore(Protocol):
 	@abstractmethod
 	async def find_all_by_repo_id_with_limit(self, repo_id: str, limit: int = 100) -> List[CodeChunksResponseDTO]: ...
 
-class TortoiseCodeChunksStore(CodeChunksStore):
+class TortoiseICodeChunksStore(ICodeChunksStore):
 	
 	model=CodeChunks
 	model_mapper = TortoiseModelMapper
