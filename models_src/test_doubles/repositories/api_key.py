@@ -1,7 +1,7 @@
 import datetime
 import uuid
 from dataclasses import asdict
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 from uuid import uuid4
 
 from models_src.dto.api_key import APIKeyRequestDTO, APIKeyResponseDTO
@@ -9,6 +9,7 @@ from models_src.repositories.api_key import IApiKeyStore
 
 
 class FakeApiKeyStore(IApiKeyStore):
+    
     def __init__(self):
         self.data_store: dict[Any, List[APIKeyResponseDTO]] = {}
         self.existing_hash_set = set()
@@ -83,9 +84,9 @@ class FakeApiKeyStore(IApiKeyStore):
                 updated += 1
         return updated
 
-    async def get_all_by_user_id(self, user_id) -> List[APIKeyResponseDTO]:
+    async def find_all_by_user_id(self, user_id) -> List[APIKeyResponseDTO]:
         self.__utility(
-            self.get_all_by_user_id,
+            self.find_all_by_user_id,
             (
                 user_id,
             ),
@@ -110,3 +111,36 @@ class FakeApiKeyStore(IApiKeyStore):
         )
         
         return sorted_data
+    
+    async def find_first_by_api_key_and_is_active(self, api_key: str, is_active=True) -> Optional[APIKeyResponseDTO]:
+        data = self.__get_data_store()
+        
+        if not data:
+            return None
+        
+        discovered_result = None
+        for val in data.values():
+            for i in val:
+                if i.api_key == api_key and i.is_active == is_active:
+                    discovered_result = i
+                    break
+            
+            if discovered_result:
+                break
+        
+        return discovered_result
+    
+    async def update_last_used_by_id(self, id: str) -> int:
+        data = self.__get_data_store()
+        updated = 0
+        
+        if not data:
+            return updated
+        
+        for val in data.values():
+            for i in val:
+                if i.id == uuid.UUID(id):
+                    updated+=1
+                    i.last_used = datetime.datetime.now(datetime.timezone.utc)
+        
+        return updated

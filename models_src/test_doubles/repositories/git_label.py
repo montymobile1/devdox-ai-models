@@ -9,6 +9,7 @@ from models_src.repositories.git_label import ILabelStore
 
 
 class FakeGitLabelStore(ILabelStore):
+    
     def __init__(self):
         self.data_store: dict[Any, List[GitLabelResponseDTO]] = {}
         self.total_count = 0
@@ -163,6 +164,22 @@ class FakeGitLabelStore(ILabelStore):
                 data.pop(index)
 
         return initial_count - len(data)
+    
+    async def find_by_id_and_user_id_and_git_hosting(self, id: str, user_id: str, git_hosting: str) -> Optional[
+        GitLabelResponseDTO]:
+        
+        self.__utility(self.find_by_id_and_user_id_and_git_hosting, (id, user_id, git_hosting, ))
+        
+        data = self.__get_data_store(user_id=user_id)
+        
+        match = None
+        
+        for record in data:
+            if record.id == id and record.git_hosting == git_hosting:
+                match = record
+                break
+
+        return match
 
 class StubGitLabelStore(ILabelStore):
 
@@ -211,6 +228,12 @@ class StubGitLabelStore(ILabelStore):
     async def get_by_token_id_and_user(self, token_id, user_id):
         return await self.__stubify(
             self.get_by_token_id_and_user, token_id=token_id, user_id=user_id
+        )
+    
+    async def find_by_id_and_user_id_and_git_hosting(self, id: str, user_id: str, git_hosting: str) -> Optional[
+        GitLabelResponseDTO]:
+        return await self.__stubify(
+            self.find_by_id_and_user_id_and_git_hosting, id=id, user_id=user_id, git_hosting=git_hosting
         )
 
 def make_fake_git_label(**overrides) -> GitLabelResponseDTO:

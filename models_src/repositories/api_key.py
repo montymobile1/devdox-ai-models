@@ -1,7 +1,8 @@
+import datetime
 import uuid
 from abc import abstractmethod
 from dataclasses import asdict
-from typing import List, Protocol
+from typing import List, Optional, Protocol
 
 from models_src.dto.api_key import APIKeyRequestDTO, APIKeyResponseDTO
 from models_src.dto.utils import TortoiseModelMapper
@@ -23,8 +24,14 @@ class IApiKeyStore(Protocol):
     async def update_is_active_by_user_id_and_api_key_id(
         self, user_id, api_key_id, is_active
     ) -> int: ...
-
     
+    @abstractmethod
+    async def find_first_by_api_key_and_is_active(self, api_key: str, is_active=True) -> Optional[APIKeyResponseDTO]: ...
+    
+    @abstractmethod
+    async def update_last_used_by_id(
+            self, id: str
+    ) -> int: ...
 
 class TortoiseApiKeyStore(IApiKeyStore):
     
@@ -79,5 +86,24 @@ class TortoiseApiKeyStore(IApiKeyStore):
         )
         
         return self.model_mapper.map_models_to_dataclasses_list(data, APIKeyResponseDTO)
+    
+    async def find_first_by_api_key_and_is_active(self, api_key: str, is_active=True) -> Optional[APIKeyResponseDTO]:
+        
+        if not api_key or not api_key.strip():
+            return None
+        
+        data = (
+            await APIKEY.filter(api_key=api_key, is_active=is_active).first()
+        )
+        
+        return self.model_mapper.map_model_to_dataclass(data, APIKeyResponseDTO)
 
+    async def update_last_used_by_id(
+        self, id: str
+    ) -> int:
+        if not id or not id.strip():
+            return -1
 
+        return await self.model.filter(
+            id=id
+        ).update(last_used_at=datetime.datetime.now(datetime.timezone.utc))

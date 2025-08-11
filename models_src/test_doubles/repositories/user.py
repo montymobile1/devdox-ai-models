@@ -1,11 +1,14 @@
+import datetime
 import uuid
+from dataclasses import asdict
 from typing import Any, Tuple
 
-from models_src.dto.user import UserResponseDTO
+from models_src.dto.user import UserRequestDTO, UserResponseDTO
 from models_src.repositories.user import IUserStore
 
 
 class FakeUserStore(IUserStore):
+    
     def __init__(self):
         self.data_store: dict[Any, UserResponseDTO] = {}
         self.total_count = 0
@@ -41,13 +44,41 @@ class FakeUserStore(IUserStore):
     def set_exception(self, method, exception: Exception):
         method_name = method.__name__
         self.exceptions[method_name] = exception
-
+    
+    async def save(self, user_model: UserRequestDTO) -> UserResponseDTO:
+        self.__utility(self.save, (user_model,))
+        
+        result = UserResponseDTO(**asdict(user_model))
+        result.id = uuid.uuid4()
+        result.created_at = datetime.datetime.now(datetime.timezone.utc)
+        
+        self.__set_data_store(data=result)
+        self.total_count += 1
+        
+        return result
+    
     async def find_by_user_id(self, user_id: str):
 
         self.__utility(self.find_by_user_id, (user_id,))
 
         return self.__get_data_store(user_id=user_id)
-
+    
+    async def increment_token_usage(self, user_id: str, tokens_used: int) -> int:
+        self.__utility(self.increment_token_usage, (user_id, tokens_used,))
+        
+        if not user_id or not user_id.strip() or not tokens_used:
+            return -1
+        
+        updated = 0
+        
+        data:UserResponseDTO = self.__get_data_store(user_id=user_id)
+        
+        if data:
+            data.token_used += tokens_used
+            updated+=1
+        
+        return updated
+    
 class StubUserStore(IUserStore):
 
     def __init__(self):
@@ -69,10 +100,20 @@ class StubUserStore(IUserStore):
     def set_exception(self, method, exception: Exception):
         method_name = method.__name__
         self.exceptions[method_name] = exception
-
+    
+    async def save(self, user_model: UserRequestDTO) -> UserResponseDTO:
+        return await self.__stubify(
+            self.save, user_model=user_model
+        )
+    
     async def find_by_user_id(self, user_id):
         return await self.__stubify(
             self.find_by_user_id, user_id=user_id
+        )
+    
+    async def increment_token_usage(self, user_id: str, tokens_used: int) -> int:
+        return await self.__stubify(
+            self.increment_token_usage, user_id=user_id, tokens_used=tokens_used
         )
 
 def make_fake_user(user_id="user123", email="test@example.com", encryption_salt="xyz"):

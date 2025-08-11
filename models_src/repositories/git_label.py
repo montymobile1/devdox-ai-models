@@ -26,7 +26,12 @@ class ILabelStore(Protocol):
     async def get_by_token_id_and_user(
         self, token_id: str, user_id: str
     ) -> GitLabelResponseDTO | None: ...
-
+    
+    @abstractmethod
+    async def find_by_id_and_user_id_and_git_hosting(
+            self,  id: str, user_id: str, git_hosting: str
+    ) -> Optional[GitLabelResponseDTO]: ...
+    
     @abstractmethod
     async def get_all_by_user_id(
         self, offset, limit, user_id, git_hosting: Optional[str] = None
@@ -165,3 +170,13 @@ class TortoiseGitLabelStore(ILabelStore):
         ).delete()
 
         return number_of_effected_rows
+    
+    async def find_by_id_and_user_id_and_git_hosting(self, id: str, user_id: str, git_hosting: str) -> Optional[
+        GitLabelResponseDTO]:
+        raw_data = await GitLabel.filter(
+            id=id, user_id=user_id, git_hosting=git_hosting
+        ).first()
+        
+        return self.model_mapper.map_model_to_dataclass(
+            raw_data, GitLabelResponseDTO
+        )

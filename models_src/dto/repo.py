@@ -46,51 +46,30 @@ class RepoResponseDTO:
 @dataclass
 class RepoRequestDTO:
 
-    # Ownership
     user_id: str
-
-    # Repository basic information
     repo_id: str
     repo_name: str
-    description: str
     html_url: str
-
-    # Repository metadata
-    default_branch: str
-    forks_count: int
-    stargazers_count: int
-
-    # Visibility/Privacy settings
-    is_private: bool
-    visibility: str
-
-    # Git provider information
-    token_id: str
-
-    # Timestamps (external from Git provider)
-    repo_created_at: datetime.datetime
-
-    # Additional metadata
-    language: List[str]
-
-    size: int
-    relative_path: str
-
-    # Custom naming and references
     repo_alias_name: str
-    repo_user_reference: Optional[str] = None
 
-    total_files: Optional[int] = None
-    total_chunks: Optional[int] = None
-
-    error_message: Optional[str] = None
-
-    last_commit: Optional[str] = None
-
-    updated_at: Optional[datetime.datetime] = None
-    created_at: Optional[datetime.datetime] = None
-
+    description: Optional[str] = None
+    default_branch: str = "main"
+    forks_count: int = 0
+    stargazers_count: int = 0
+    is_private: bool = False
+    visibility: Optional[str] = None
+    token_id: Optional[str] = None
+    repo_created_at: Optional[datetime.datetime] = None
     repo_updated_at: Optional[datetime.datetime] = None
-
+    language: Optional[List[str]] = None
+    size: Optional[int] = None
+    relative_path: Optional[str] = None
+    total_files: int = 0
+    total_chunks: int = 0
     processing_start_time: Optional[datetime.datetime] = None
     processing_end_time: Optional[datetime.datetime] = None
+    error_message: Optional[str] = None
+    last_commit: str = ""
+    status: str = "pending"
+    repo_user_reference: Optional[str] = None
+    repo_system_reference: Optional[str] = None
