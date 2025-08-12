@@ -58,8 +58,8 @@ Repository = "https://github.com/montymobile1/devdox-ai-models.git"
 
 
 [tool.setuptools.packages.find]
-where = ["models_src"]
-include = ["devdox-ai-models*"]
+where = ["."]
+include = ["models_src*"]
 exclude = ["tests*"]
 
 [tool.black]
