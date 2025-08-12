@@ -113,6 +113,14 @@ class FakeApiKeyStore(IApiKeyStore):
         return sorted_data
     
     async def find_first_by_api_key_and_is_active(self, api_key: str, is_active=True) -> Optional[APIKeyResponseDTO]:
+        self.__utility(
+            self.find_first_by_api_key_and_is_active,
+            (
+                api_key,
+                is_active,
+            ),
+        )
+        
         data = self.__get_data_store()
         
         if not data:
@@ -131,6 +139,15 @@ class FakeApiKeyStore(IApiKeyStore):
         return discovered_result
     
     async def update_last_used_by_id(self, id: str) -> int:
+        
+        self.__utility(
+            self.update_last_used_by_id,
+            (
+                id,
+            ),
+        )
+        
+        
         data = self.__get_data_store()
         updated = 0
         
@@ -144,3 +161,15 @@ class FakeApiKeyStore(IApiKeyStore):
                     i.last_used = datetime.datetime.now(datetime.timezone.utc)
         
         return updated
+    
+    async def get_all_by_user_id(self, user_id) -> List[APIKeyResponseDTO]:
+        self.__utility(
+            self.get_all_by_user_id,
+            (
+                user_id,
+            ),
+        )
+        
+        data = self.__get_data_store(user_id=user_id)
+        
+        return data
