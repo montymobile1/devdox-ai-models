@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import asdict
-from typing import List, Tuple
+from typing import List
 from uuid import uuid4
 
 from models_src.dto.code_chunks import CodeChunksRequestDTO, CodeChunksResponseDTO
