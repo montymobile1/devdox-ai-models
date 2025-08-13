@@ -12,7 +12,7 @@ class DevDoxModelsException(Exception):
         error_type: Optional[str] = None,
         public_context: Optional[Dict[str, Any]] = None,
         internal_context: Optional[Dict[str, Any]] = None,
-        log_level: Optional[int] = None
+        log_level: Optional[int] = None,
     ):
         """
         Args:

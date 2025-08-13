@@ -3,6 +3,7 @@ import datetime
 import uuid
 from typing import Any, Optional
 
+
 @dataclasses.dataclass
 class CodeChunksResponseDTO:
     """
@@ -22,7 +23,6 @@ class CodeChunksResponseDTO:
     created_at: Optional[datetime.datetime]
 
 
-
 @dataclasses.dataclass
 class CodeChunksRequestDTO:
     """
@@ -30,17 +30,17 @@ class CodeChunksRequestDTO:
     """
 
     user_id: str
-    
+
     repo_id: str
     content: str
-    
+
     file_name: str
-    
+
     file_path: str
-    
+
     file_size: int
 
     commit_number: str
-    
+
     embedding: Optional[Any] = None
     metadata: dict = dataclasses.field(default_factory=dict)

@@ -1,7 +1,9 @@
 from typing import Any, Callable, Dict, List, Tuple
 
+
 class CallSpyMixin:
     """Collects (method_name, args, kwargs) for assertions."""
+
     def __init__(self) -> None:
         self.received_calls: List[Tuple[str, tuple, dict]] = []
 
@@ -13,11 +15,13 @@ class CallSpyMixin:
         self.received_calls.append((name, args, kwargs))
         return name
 
+
 class ExceptionPlanMixin:
     """Lets you pre-wire exceptions per method name."""
+
     def __init__(self) -> None:
         self._exceptions: Dict[str, Exception] = {}
-    
+
     def set_exception(self, method: Callable, exc: Exception) -> None:
         self._exceptions[method.__name__] = exc
 
@@ -26,16 +30,18 @@ class ExceptionPlanMixin:
         if exc:
             raise exc
 
+
 class StubPlanMixin(CallSpyMixin, ExceptionPlanMixin):
     """
     For stubs: predefine outputs per method.
     set_output(method, value_or_callable)
     """
+
     def __init__(self) -> None:
         CallSpyMixin.__init__(self)
         ExceptionPlanMixin.__init__(self)
         self._outputs: Dict[str, Any] = {}
-    
+
     def set_output(self, method: Callable, output: Any) -> None:
         self._outputs[method.__name__] = output
 
@@ -46,11 +52,13 @@ class StubPlanMixin(CallSpyMixin, ExceptionPlanMixin):
         # Allow dynamic outputs
         return await out(**kwargs) if callable(out) else out
 
+
 class FakeBase(CallSpyMixin, ExceptionPlanMixin):
     """
     For fakes: just call tracking + exceptions.
     Your class keeps its own store and accessors.
     """
+
     def __init__(self) -> None:
         CallSpyMixin.__init__(self)
         ExceptionPlanMixin.__init__(self)

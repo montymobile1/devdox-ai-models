@@ -27,4 +27,3 @@ class GitLabelRequestDTO:
     username: str
     token_value: str
     masked_token: str
-

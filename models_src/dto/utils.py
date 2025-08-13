@@ -29,14 +29,15 @@ class DataclassMapper:
 class TortoiseModelMapper:
 
     @staticmethod
-    def map_model_to_dataclass[target_type](source: Model, target_cls: Type[target_type]) -> Optional[target_type]:
+    def map_model_to_dataclass[target_type](
+        source: Model, target_cls: Type[target_type]
+    ) -> Optional[target_type]:
         if not source or not target_cls:
             return None
 
         # Only grab actual model fields, not internal attributes
         raw_data = {
-            field: getattr(source, field)
-            for field in source._meta.fields_map.keys()
+            field: getattr(source, field) for field in source._meta.fields_map.keys()
         }
 
         # Match dataclass fields
@@ -45,7 +46,9 @@ class TortoiseModelMapper:
         return target_cls(**filtered_data)
 
     @staticmethod
-    def map_models_to_dataclasses_list[target_type](sources: List[Model], target_cls: Type[target_type]) -> List[target_type]:
+    def map_models_to_dataclasses_list[target_type](
+        sources: List[Model], target_cls: Type[target_type]
+    ) -> List[target_type]:
         if not sources or not target_cls:
             return []
 

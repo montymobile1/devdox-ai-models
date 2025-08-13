@@ -11,7 +11,7 @@ from models_src.test_doubles.repositories.bases import FakeBase, StubPlanMixin
 
 
 class FakeGitLabelStore(FakeBase, ILabelStore):
-    
+
     def __init__(self):
         super().__init__()
         self.data_store: dict[Any, List[GitLabelResponseDTO]] = {}
@@ -23,10 +23,10 @@ class FakeGitLabelStore(FakeBase, ILabelStore):
             return self.data_store.get(user_id, [])
 
         return self.data_store
-    
-    def __set_data_store(self, data:GitLabelResponseDTO):
+
+    def __set_data_store(self, data: GitLabelResponseDTO):
         self.data_store.setdefault(data.user_id, []).append(data)
-    
+
     def set_fake_data(self, fake_data: List[GitLabelResponseDTO]):
         for data in fake_data:
             self.__set_data_store(data)
@@ -37,56 +37,65 @@ class FakeGitLabelStore(FakeBase, ILabelStore):
 
         self.total_count = full_total
 
-    async def get_all_git_hosting_only_by_token_id_list(self, token_ids: Collection[Union[str, UUID]]) -> List[Dict]:
-        self._before(self.get_all_git_hosting_only_by_token_id_list, token_ids=token_ids)
-        
+    async def get_all_git_hosting_only_by_token_id_list(
+        self, token_ids: Collection[Union[str, UUID]]
+    ) -> List[Dict]:
+        self._before(
+            self.get_all_git_hosting_only_by_token_id_list, token_ids=token_ids
+        )
+
         if not token_ids:
             return []
-        
+
         match_list = []
         for key, obj_list in self.data_store.items():
             match = next((obj for obj in obj_list if obj.id in token_ids), None)
             if match:
-                match_list.append(
-                    {
-                        "id": match.id,
-                        "git_hosting": match.git_hosting
-                    }
-                )
+                match_list.append({"id": match.id, "git_hosting": match.git_hosting})
 
         return match_list
 
-    async def get_by_token_id_and_user(self, token_id: str, user_id: str) -> GitLabelResponseDTO | None:
+    async def get_by_token_id_and_user(
+        self, token_id: str, user_id: str
+    ) -> GitLabelResponseDTO | None:
         self._before(self.get_by_token_id_and_user, token_id=token_id, user_id=user_id)
-        
+
         if not token_id or not token_id.strip() or not user_id or not user_id.strip():
             return None
-        
+
         user_id_data = self.__get_data_store(user_id=user_id)
 
         result = None
         for record in user_id_data:
             if record.id == token_id:
-                result= record
+                result = record
                 break
 
         return result
-        
-    async def get_all_by_user_id(self, offset, limit, user_id, git_hosting: Optional[str] = None) -> list[GitLabelResponseDTO]:
-        self._before(self.get_all_by_user_id, offset=offset, limit=limit, user_id=user_id, git_hosting=git_hosting)
-        
+
+    async def get_all_by_user_id(
+        self, offset, limit, user_id, git_hosting: Optional[str] = None
+    ) -> list[GitLabelResponseDTO]:
+        self._before(
+            self.get_all_by_user_id,
+            offset=offset,
+            limit=limit,
+            user_id=user_id,
+            git_hosting=git_hosting,
+        )
+
         if not user_id:
             raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
-        
+
         data = self.__get_data_store(user_id=user_id)
         return data[offset : offset + limit]
 
     async def count_by_user_id(self, user_id, git_hosting: Optional[str] = None) -> int:
         self._before(self.count_by_user_id, user_id=user_id, git_hosting=git_hosting)
-        
+
         if not user_id:
             raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
-        
+
         data = self.__get_data_store(user_id=user_id)
 
         count = len(data) if data else 0
@@ -99,12 +108,20 @@ class FakeGitLabelStore(FakeBase, ILabelStore):
 
         return count
 
-    async def get_all_by_user_id_and_label(self, offset, limit, user_id, label: str) -> list[GitLabelResponseDTO]:
-        self._before(self.get_all_by_user_id_and_label, offset=offset, limit=limit, user_id=user_id, label=label)
-        
+    async def get_all_by_user_id_and_label(
+        self, offset, limit, user_id, label: str
+    ) -> list[GitLabelResponseDTO]:
+        self._before(
+            self.get_all_by_user_id_and_label,
+            offset=offset,
+            limit=limit,
+            user_id=user_id,
+            label=label,
+        )
+
         if not user_id:
             raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
-        
+
         data = self.__get_data_store(user_id=user_id)
 
         results = []
@@ -116,10 +133,10 @@ class FakeGitLabelStore(FakeBase, ILabelStore):
 
     async def count_by_user_id_and_label(self, user_id, label: str) -> int:
         self._before(self.count_by_user_id_and_label, user_id=user_id, label=label)
-        
+
         if not user_id:
             raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
-        
+
         user_id_data = self.__get_data_store(user_id=user_id)
 
         if label:
@@ -146,7 +163,7 @@ class FakeGitLabelStore(FakeBase, ILabelStore):
 
     async def delete_by_id_and_user_id(self, label_id: uuid.UUID, user_id: str) -> int:
         self._before(self.delete_by_id_and_user_id, label_id=label_id, user_id=user_id)
-        
+
         if not label_id or not user_id or not user_id.strip():
             return -1
 
@@ -167,16 +184,22 @@ class FakeGitLabelStore(FakeBase, ILabelStore):
                 data.pop(index)
 
         return initial_count - len(data)
-    
-    async def find_by_id_and_user_id_and_git_hosting(self, id: str, user_id: str, git_hosting: str) -> Optional[
-        GitLabelResponseDTO]:
-        
-        self._before(self.find_by_id_and_user_id_and_git_hosting, id=id, user_id=user_id, git_hosting=git_hosting )
-        
+
+    async def find_by_id_and_user_id_and_git_hosting(
+        self, id: str, user_id: str, git_hosting: str
+    ) -> Optional[GitLabelResponseDTO]:
+
+        self._before(
+            self.find_by_id_and_user_id_and_git_hosting,
+            id=id,
+            user_id=user_id,
+            git_hosting=git_hosting,
+        )
+
         data = self.__get_data_store(user_id=user_id)
-        
+
         match = None
-        
+
         for record in data:
             if record.id == id and record.git_hosting == git_hosting:
                 match = record
@@ -184,29 +207,42 @@ class FakeGitLabelStore(FakeBase, ILabelStore):
 
         return match
 
+
 class StubGitLabelStore(StubPlanMixin, ILabelStore):
 
     def __init__(self):
         super().__init__()
 
     async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO:
-        return await self._stub(
-            self.save, label_model=label_model
-        )
+        return await self._stub(self.save, label_model=label_model)
 
-    async def get_all_git_hosting_only_by_token_id_list(self, token_ids: Collection[Union[str, UUID]]) -> List[Dict]:
+    async def get_all_git_hosting_only_by_token_id_list(
+        self, token_ids: Collection[Union[str, UUID]]
+    ) -> List[Dict]:
         return await self._stub(
             self.get_all_git_hosting_only_by_token_id_list, token_ids=token_ids
         )
 
-    async def get_all_by_user_id(self, offset, limit, user_id, git_hosting: Optional[str] = None) -> list[GitLabelResponseDTO]:
+    async def get_all_by_user_id(
+        self, offset, limit, user_id, git_hosting: Optional[str] = None
+    ) -> list[GitLabelResponseDTO]:
         return await self._stub(
-            self.get_all_by_user_id, offset=offset, limit=limit, user_id=user_id, git_hosting=git_hosting
+            self.get_all_by_user_id,
+            offset=offset,
+            limit=limit,
+            user_id=user_id,
+            git_hosting=git_hosting,
         )
 
-    async def get_all_by_user_id_and_label(self, offset, limit, user_id, label: str) -> list[GitLabelResponseDTO]:
+    async def get_all_by_user_id_and_label(
+        self, offset, limit, user_id, label: str
+    ) -> list[GitLabelResponseDTO]:
         return await self._stub(
-            self.get_all_by_user_id_and_label, offset=offset, limit=limit, user_id=user_id, label=label
+            self.get_all_by_user_id_and_label,
+            offset=offset,
+            limit=limit,
+            user_id=user_id,
+            label=label,
         )
 
     async def count_by_user_id(self, user_id, git_hosting: Optional[str] = None) -> int:
@@ -221,18 +257,24 @@ class StubGitLabelStore(StubPlanMixin, ILabelStore):
 
     async def delete_by_id_and_user_id(self, label_id: uuid.UUID, user_id: str) -> int:
         return await self._stub(
-            self.delete_by_id_and_user_id,  label_id=label_id, user_id=user_id
+            self.delete_by_id_and_user_id, label_id=label_id, user_id=user_id
         )
 
     async def get_by_token_id_and_user(self, token_id, user_id):
         return await self._stub(
             self.get_by_token_id_and_user, token_id=token_id, user_id=user_id
         )
-    
-    async def find_by_id_and_user_id_and_git_hosting(self, id: str, user_id: str, git_hosting: str) -> Optional[GitLabelResponseDTO]:
+
+    async def find_by_id_and_user_id_and_git_hosting(
+        self, id: str, user_id: str, git_hosting: str
+    ) -> Optional[GitLabelResponseDTO]:
         return await self._stub(
-            self.find_by_id_and_user_id_and_git_hosting, id=id, user_id=user_id, git_hosting=git_hosting
+            self.find_by_id_and_user_id_and_git_hosting,
+            id=id,
+            user_id=user_id,
+            git_hosting=git_hosting,
         )
+
 
 def make_fake_git_label(**overrides) -> GitLabelResponseDTO:
     now = datetime.datetime.now()

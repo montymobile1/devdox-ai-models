@@ -13,10 +13,10 @@ from models_src.models import GitLabel
 
 
 class ILabelStore(Protocol):
-    
+
     @abstractmethod
     async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO: ...
-    
+
     @abstractmethod
     async def get_all_git_hosting_only_by_token_id_list(
         self, token_ids: Collection[Union[str, UUID]]
@@ -26,22 +26,22 @@ class ILabelStore(Protocol):
     async def get_by_token_id_and_user(
         self, token_id: str, user_id: str
     ) -> GitLabelResponseDTO | None: ...
-    
+
     @abstractmethod
     async def find_by_id_and_user_id_and_git_hosting(
-            self,  id: str, user_id: str, git_hosting: str
+        self, id: str, user_id: str, git_hosting: str
     ) -> Optional[GitLabelResponseDTO]: ...
-    
+
     @abstractmethod
     async def get_all_by_user_id(
         self, offset, limit, user_id, git_hosting: Optional[str] = None
     ) -> list[GitLabelResponseDTO]: ...
-    
+
     @abstractmethod
     async def get_all_by_user_id_and_label(
-            self, offset, limit, user_id, label: str
+        self, offset, limit, user_id, label: str
     ) -> list[GitLabelResponseDTO]: ...
-    
+
     @abstractmethod
     async def count_by_user_id(
         self, user_id, git_hosting: Optional[str] = None
@@ -106,10 +106,15 @@ class TortoiseGitLabelStore(ILabelStore):
         query = self.__get_by_user_id_query(user_id, git_hosting)
 
         git_labels = (
-            await query.order_by("-created_at").offset(offset * limit).limit(limit).all()
+            await query.order_by("-created_at")
+            .offset(offset * limit)
+            .limit(limit)
+            .all()
         )
 
-        return self.model_mapper.map_models_to_dataclasses_list(git_labels, GitLabelResponseDTO)
+        return self.model_mapper.map_models_to_dataclasses_list(
+            git_labels, GitLabelResponseDTO
+        )
 
     async def count_by_user_id(self, user_id, git_hosting: Optional[str] = None) -> int:
         query = self.__get_by_user_id_query(user_id, git_hosting)
@@ -139,7 +144,10 @@ class TortoiseGitLabelStore(ILabelStore):
         query = self.__get_by_user_id_and_label_query(user_id, label)
 
         git_labels = (
-            await query.order_by("-created_at").offset(offset * limit).limit(limit).all()
+            await query.order_by("-created_at")
+            .offset(offset * limit)
+            .limit(limit)
+            .all()
         )
 
         return self.model_mapper.map_models_to_dataclasses_list(
@@ -151,9 +159,7 @@ class TortoiseGitLabelStore(ILabelStore):
         try:
             model = await self.model.create(**asdict(label_model))
 
-            return self.model_mapper.map_model_to_dataclass(
-                model, GitLabelResponseDTO
-            )
+            return self.model_mapper.map_model_to_dataclass(model, GitLabelResponseDTO)
 
         except IntegrityError as e:
             raise internal_error(**GitLabelErrors.GIT_LABEL_ALREADY_EXISTS.value) from e
@@ -170,13 +176,12 @@ class TortoiseGitLabelStore(ILabelStore):
         ).delete()
 
         return number_of_effected_rows
-    
-    async def find_by_id_and_user_id_and_git_hosting(self, id: str, user_id: str, git_hosting: str) -> Optional[
-        GitLabelResponseDTO]:
+
+    async def find_by_id_and_user_id_and_git_hosting(
+        self, id: str, user_id: str, git_hosting: str
+    ) -> Optional[GitLabelResponseDTO]:
         raw_data = await GitLabel.filter(
             id=id, user_id=user_id, git_hosting=git_hosting
         ).first()
-        
-        return self.model_mapper.map_model_to_dataclass(
-            raw_data, GitLabelResponseDTO
-        )
+
+        return self.model_mapper.map_model_to_dataclass(raw_data, GitLabelResponseDTO)
