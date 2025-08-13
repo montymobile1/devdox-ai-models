@@ -5,6 +5,7 @@ from typing import Any, Collection, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 from models_src.dto.git_label import GitLabelRequestDTO, GitLabelResponseDTO
+from models_src.exceptions.utils import GitLabelErrors, internal_error
 from models_src.repositories.git_label import ILabelStore
 
 
@@ -71,7 +72,10 @@ class FakeGitLabelStore(ILabelStore):
 
     async def get_by_token_id_and_user(self, token_id: str, user_id: str) -> GitLabelResponseDTO | None:
         self.__utility(self.get_by_token_id_and_user, (token_id, user_id))
-
+        
+        if not token_id or not token_id.strip() or not user_id or not user_id.strip():
+            return None
+        
         user_id_data = self.__get_data_store(user_id=user_id)
 
         result = None
@@ -81,15 +85,22 @@ class FakeGitLabelStore(ILabelStore):
                 break
 
         return result
-
+        
     async def get_all_by_user_id(self, offset, limit, user_id, git_hosting: Optional[str] = None) -> list[GitLabelResponseDTO]:
         self.__utility(self.get_all_by_user_id, (offset, limit, user_id, git_hosting))
+        
+        if not user_id:
+            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
+        
         data = self.__get_data_store(user_id=user_id)
         return data[offset : offset + limit]
 
     async def count_by_user_id(self, user_id, git_hosting: Optional[str] = None) -> int:
         self.__utility(self.count_by_user_id, (user_id, git_hosting))
-
+        
+        if not user_id:
+            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
+        
         data = self.__get_data_store(user_id=user_id)
 
         count = len(data) if data else 0
@@ -104,7 +115,10 @@ class FakeGitLabelStore(ILabelStore):
 
     async def get_all_by_user_id_and_label(self, offset, limit, user_id, label: str) -> list[GitLabelResponseDTO]:
         self.__utility(self.get_all_by_user_id_and_label, (offset, limit, user_id, label))
-
+        
+        if not user_id:
+            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
+        
         data = self.__get_data_store(user_id=user_id)
 
         results = []
@@ -116,7 +130,10 @@ class FakeGitLabelStore(ILabelStore):
 
     async def count_by_user_id_and_label(self, user_id, label: str) -> int:
         self.__utility(self.count_by_user_id_and_label, (user_id, label))
-
+        
+        if not user_id:
+            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
+        
         user_id_data = self.__get_data_store(user_id=user_id)
 
         if label:

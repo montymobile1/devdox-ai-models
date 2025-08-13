@@ -87,7 +87,24 @@ class FakeApiKeyStore(IApiKeyStore):
                 value.is_active = is_active
                 updated += 1
         return updated
-
+    
+    async def get_all_by_user_id(self, user_id) -> List[APIKeyResponseDTO]:
+        self.__utility(
+            self.get_all_by_user_id,
+            (
+                user_id,
+            ),
+        )
+        
+        if not user_id or not user_id.strip():
+            return []
+        
+        data: List[APIKeyResponseDTO] = self.__get_data_store(user_id=user_id)
+        
+        sorted_data = sorted(data, key=lambda obj: obj.created_at, reverse=True)
+        
+        return sorted_data
+    
     async def find_all_by_user_id(self, user_id) -> List[APIKeyResponseDTO]:
         self.__utility(
             self.find_all_by_user_id,
@@ -125,6 +142,9 @@ class FakeApiKeyStore(IApiKeyStore):
             ),
         )
         
+        if not api_key or not api_key.strip():
+            return None
+        
         data = self.__get_data_store()
         
         if not data:
@@ -151,6 +171,8 @@ class FakeApiKeyStore(IApiKeyStore):
             ),
         )
         
+        if not id or not id.strip():
+            return -1
         
         data = self.__get_data_store()
         updated = 0
@@ -166,19 +188,4 @@ class FakeApiKeyStore(IApiKeyStore):
         
         return updated
     
-    async def get_all_by_user_id(self, user_id) -> List[APIKeyResponseDTO]:
-        self.__utility(
-            self.get_all_by_user_id,
-            (
-                user_id,
-            ),
-        )
-        
-        if not user_id or not user_id.strip():
-            return []
-        
-        data = self.__get_data_store(user_id=user_id)
-        
-        sorted_data = sorted(data, key=lambda obj: obj.created)
-        
-        return data
+    

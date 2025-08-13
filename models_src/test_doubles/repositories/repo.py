@@ -116,6 +116,9 @@ class FakeRepoStore(IRepoStore):
         
         data = self.__get_data_store()
         
+        if (not repo_id or not repo_id.strip()) or (not status or not status.strip()):
+            return -1
+        
         updated = 0
         for key, obj_list in data.items():
             match = next((obj for obj in obj_list if obj.repo_id == repo_id), None)

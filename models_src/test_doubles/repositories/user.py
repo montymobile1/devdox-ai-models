@@ -58,8 +58,11 @@ class FakeUserStore(IUserStore):
         return result
     
     async def find_by_user_id(self, user_id: str):
-
+        
         self.__utility(self.find_by_user_id, (user_id,))
+
+        if not user_id or not user_id.strip():
+            return None
 
         return self.__get_data_store(user_id=user_id)
     

@@ -65,6 +65,9 @@ class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 			self.update_status_or_message_id_by_id, (id, status, message_id)
 		)
 		
+		if (not id or not id.strip()) or not status:
+			return -1
+		
 		updated = 0
 		
 		data_obj = self.__get_data_store(id=id)
@@ -87,6 +90,9 @@ class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 			self.update_step_by_id, (id, step)
 		)
 		
+		if not id or not id.strip() or not step or not step.strip():
+			return -1
+		
 		updated = 0
 		
 		data_obj = self.__get_data_store(id=id)
@@ -104,6 +110,9 @@ class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 		self.__utility(
 			self.update_status_and_step_by_id, (id, status, step)
 		)
+		
+		if not id or not id.strip() or not status or not step or not step.strip():
+			return -1
 		
 		updated = 0
 		
