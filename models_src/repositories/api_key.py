@@ -54,9 +54,6 @@ class TortoiseApiKeyStore(IApiKeyStore):
         
         if not hash_key or not hash_key.strip():
             return False
-        
-        if not hash_key or not hash_key.strip():
-            return False
 
         return await self.model.filter(api_key=hash_key).exists()
 
@@ -67,7 +64,7 @@ class TortoiseApiKeyStore(IApiKeyStore):
     async def update_is_active_by_user_id_and_api_key_id(
         self, user_id: str, api_key_id: uuid.UUID, is_active: bool
     ) -> int:
-        if (not user_id or not user_id.strip()) or not api_key_id:
+        if not user_id or not user_id.strip() or not api_key_id:
             return -1
 
         return await self.model.filter(
@@ -93,7 +90,7 @@ class TortoiseApiKeyStore(IApiKeyStore):
             return None
         
         data = (
-            await APIKEY.filter(api_key=api_key, is_active=is_active).first()
+            await self.model.filter(api_key=api_key, is_active=is_active).first()
         )
         
         return self.model_mapper.map_model_to_dataclass(data, APIKeyResponseDTO)

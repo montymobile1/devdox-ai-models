@@ -53,6 +53,10 @@ class FakeApiKeyStore(IApiKeyStore):
 
     async def exists_by_hash_key(self, hash_key: str) -> bool:
         self.__utility(self.exists_by_hash_key, (hash_key,))
+        
+        if not hash_key or not hash_key.strip():
+            return False
+        
         return hash_key in self.existing_hash_set
 
     async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
@@ -70,7 +74,7 @@ class FakeApiKeyStore(IApiKeyStore):
 
     async def update_is_active_by_user_id_and_api_key_id(self, user_id, api_key_id, is_active) -> int:
         self.__utility(self.update_is_active_by_user_id_and_api_key_id, (user_id, api_key_id,))
-
+        
         if not user_id or not user_id.strip() or not api_key_id:
             return -1
 
@@ -170,6 +174,11 @@ class FakeApiKeyStore(IApiKeyStore):
             ),
         )
         
+        if not user_id or not user_id.strip():
+            return []
+        
         data = self.__get_data_store(user_id=user_id)
+        
+        sorted_data = sorted(data, key=lambda obj: obj.created)
         
         return data

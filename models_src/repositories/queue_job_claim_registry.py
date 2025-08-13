@@ -70,13 +70,13 @@ class TortoiseQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 		return await self.__internal_update_by_id(id, **values_to_update_dict)
 	
 	async def update_step_by_id(self, id: str, step: str) -> int:
-		if (not id or not id.strip()) or not (not step or not step.strip()):
+		if not id or not id.strip() or not step or not step.strip():
 			return -1
 		
 		return await self.__internal_update_by_id(id, step=step)
 	
 	async def update_status_and_step_by_id(self, id: str, status: QRegistryStat, step: str) -> int:
-		if (not id or not id.strip()) or not status or not (not step or not step.strip()):
+		if not id or not id.strip() or not status or not step or not step.strip():
 			return -1
 		
 		return await self.__internal_update_by_id(id, status=status, step=step)

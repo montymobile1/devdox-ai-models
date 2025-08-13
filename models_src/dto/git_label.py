@@ -15,8 +15,8 @@ class GitLabelResponseDTO:
     username: Optional[str] = None
     token_value: Optional[str] = None
     masked_token: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: Optional[datetime.datetime] = None
+    updated_at: Optional[datetime.datetime] = None
 
 
 @dataclass

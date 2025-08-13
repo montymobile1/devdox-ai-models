@@ -17,7 +17,7 @@ class ICodeChunksStore(Protocol):
 	@abstractmethod
 	async def find_all_by_repo_id_with_limit(self, repo_id: str, limit: int = 100) -> List[CodeChunksResponseDTO]: ...
 
-class TortoiseICodeChunksStore(ICodeChunksStore):
+class TortoiseCodeChunksStore(ICodeChunksStore):
 	
 	model=CodeChunks
 	model_mapper = TortoiseModelMapper
