@@ -22,7 +22,10 @@ class IQueueProcessingRegistryStore(Protocol):
 	
 	@abstractmethod
 	async def update_status_and_step_by_id(self, id: str, status: QRegistryStat, step: str) -> int: ...
-
+	
+	@abstractmethod
+	async def find_previous_latest_message_by_message_id(self, message_id: str) -> Optional[
+		QueueProcessingRegistryResponseDTO]: ...
 
 class TortoiseQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 	
@@ -77,3 +80,12 @@ class TortoiseQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 			return -1
 		
 		return await self.__internal_update_by_id(id, status=status, step=step)
+	
+	async def find_previous_latest_message_by_message_id(self, message_id: str) -> Optional[QueueProcessingRegistryResponseDTO]:
+		previous_latest_message = (
+			await QueueProcessingRegistry.filter(message_id=message_id)
+			.order_by("-message_id", "-updated_at")
+			.first()
+		)
+		
+		return self.model_mapper.map_model_to_dataclass(previous_latest_message, QueueProcessingRegistryResponseDTO)

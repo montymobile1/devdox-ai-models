@@ -10,6 +10,7 @@ from models_src.repositories.queue_job_claim_registry import IQueueProcessingReg
 
 
 class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
+	
 	def __init__(self):
 		self.data_store: dict[Any, QueueProcessingRegistryResponseDTO] = {}
 		self.total_count = 0
@@ -117,8 +118,24 @@ class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 		
 		return updated
 	
+	async def find_previous_latest_message_by_message_id(self, message_id: str) -> Optional[
+		QueueProcessingRegistryResponseDTO]:
+		
+		self.__utility(
+			self.find_previous_latest_message_by_message_id, (message_id,)
+		)
+		
+		data_obj = self.__get_data_store()
+		
+		for items in data_obj.values():
+			if items.message_id == message_id:
+				return items
+		
+		return None
+	
 	
 class StubQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
+	
 	def __init__(self):
 		self.stubbed_outputs = {}
 		self.received_calls = []  # for optional spy behavior
@@ -158,4 +175,10 @@ class StubQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 	async def update_status_and_step_by_id(self, id: str, status: QRegistryStat, step: str) -> int:
 		return await self.__stubify(
 			self.update_status_and_step_by_id, id=id, status=status, step=step
+		)
+	
+	async def find_previous_latest_message_by_message_id(self, message_id: str) -> Optional[
+		QueueProcessingRegistryResponseDTO]:
+		return await self.__stubify(
+			self.find_previous_latest_message_by_message_id, message_id=message_id
 		)
