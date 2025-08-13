@@ -5,6 +5,7 @@ from typing import Any, List, Optional, Tuple
 from uuid import uuid4
 
 from models_src.dto.api_key import APIKeyRequestDTO, APIKeyResponseDTO
+from models_src.exceptions.utils import ApiKeysErrors, internal_error
 from models_src.repositories.api_key import IApiKeyStore
 
 
@@ -88,7 +89,7 @@ class FakeApiKeyStore(IApiKeyStore):
                 updated += 1
         return updated
     
-    async def get_all_by_user_id(self, user_id) -> List[APIKeyResponseDTO]:
+    async def get_all_by_user_id(self, offset, limit, user_id) -> List[APIKeyResponseDTO]:
         self.__utility(
             self.get_all_by_user_id,
             (
@@ -97,13 +98,42 @@ class FakeApiKeyStore(IApiKeyStore):
         )
         
         if not user_id or not user_id.strip():
-            return []
+            raise internal_error(**ApiKeysErrors.MISSING_USER_ID.value)
         
         data: List[APIKeyResponseDTO] = self.__get_data_store(user_id=user_id)
         
-        sorted_data = sorted(data, key=lambda obj: obj.created_at, reverse=True)
+        sorted_data = sorted(
+            [
+                value
+                for value in data
+                if value.is_active
+            ],
+            key=lambda k: k.created_at,
+            reverse=True,
+        )
         
         return sorted_data
+    
+    async def count_by_user_id(self, user_id: str) -> int:
+        self.__utility(
+            self.count_by_user_id,
+            (
+                user_id,
+            ),
+        )
+        
+        if not user_id or not user_id.strip():
+            raise internal_error(**ApiKeysErrors.MISSING_USER_ID.value)
+        
+        data: List[APIKeyResponseDTO] = self.__get_data_store(user_id=user_id)
+        
+        is_active_data = [
+                value
+                for value in data
+                if value.is_active
+            ]
+        
+        return len(is_active_data)
     
     async def find_all_by_user_id(self, user_id) -> List[APIKeyResponseDTO]:
         self.__utility(

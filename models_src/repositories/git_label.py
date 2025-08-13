@@ -106,7 +106,7 @@ class TortoiseGitLabelStore(ILabelStore):
         query = self.__get_by_user_id_query(user_id, git_hosting)
 
         git_labels = (
-            await query.order_by("-created_at").offset(offset).limit(limit).all()
+            await query.order_by("-created_at").offset(offset * limit).limit(limit).all()
         )
 
         return self.model_mapper.map_models_to_dataclasses_list(git_labels, GitLabelResponseDTO)
@@ -139,7 +139,7 @@ class TortoiseGitLabelStore(ILabelStore):
         query = self.__get_by_user_id_and_label_query(user_id, label)
 
         git_labels = (
-            await query.order_by("-created_at").offset(offset).limit(limit).all()
+            await query.order_by("-created_at").offset(offset * limit).limit(limit).all()
         )
 
         return self.model_mapper.map_models_to_dataclasses_list(

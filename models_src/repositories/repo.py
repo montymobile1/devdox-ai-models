@@ -68,7 +68,7 @@ class TortoiseRepoStore(IRepoStore):
         list_raw_data = (
             await self.model.filter(user_id=user_id)
             .order_by("-created_at")
-            .offset(offset)
+            .offset(offset * limit)
             .limit(limit)
             .all()
         )

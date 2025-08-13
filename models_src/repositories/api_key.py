@@ -6,6 +6,7 @@ from typing import List, Optional, Protocol
 
 from models_src.dto.api_key import APIKeyRequestDTO, APIKeyResponseDTO
 from models_src.dto.utils import TortoiseModelMapper
+from models_src.exceptions.utils import ApiKeysErrors, internal_error
 from models_src.models import APIKEY
 
 
@@ -15,7 +16,10 @@ class IApiKeyStore(Protocol):
     async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO: ...
     
     @abstractmethod
-    async def get_all_by_user_id(self, user_id) -> List[APIKeyResponseDTO]: ...
+    async def get_all_by_user_id(self, offset, limit, user_id:str) -> List[APIKeyResponseDTO]: ...
+    
+    @abstractmethod
+    async def count_by_user_id(self, user_id:str) -> int: ...
     
     @abstractmethod
     async def exists_by_hash_key(self, hash_key: str) -> bool: ...
@@ -70,15 +74,26 @@ class TortoiseApiKeyStore(IApiKeyStore):
         return await self.model.filter(
             user_id=user_id, id=api_key_id, is_active=True
         ).update(is_active=is_active)
-
-    async def get_all_by_user_id(self, user_id: str) -> List[APIKeyResponseDTO]:
-
+    
+    def __get_all_api_keys_query(self, user_id:str):
         if not user_id or not user_id.strip():
-            return []
+            raise internal_error(**ApiKeysErrors.MISSING_USER_ID.value)
+
+        query = self.model.filter(user_id=user_id, is_active=True)
+
+        return query
+    
+    async def count_by_user_id(self, user_id: str) -> int:
+        query = self.__get_all_api_keys_query(user_id)
+        return await query.count()
+    
+    async def get_all_by_user_id(self, offset, limit, user_id: str) -> List[APIKeyResponseDTO]:
+
+        query = self.__get_all_api_keys_query(user_id)
 
         data = (
-            await self.model.filter(user_id=user_id, is_active=True)
-            .order_by("-created_at")
+            await query.order_by("-created_at")
+            .offset(offset * limit).limit(limit)
             .all()
         )
         
