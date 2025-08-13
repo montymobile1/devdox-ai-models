@@ -8,24 +8,15 @@ from models_src.dto.queue_job_claim_registry import QueueProcessingRegistryReque
 	QueueProcessingRegistryResponseDTO
 from models_src.models import QRegistryStat
 from models_src.repositories.queue_job_claim_registry import IQueueProcessingRegistryStore
+from models_src.test_doubles.repositories.bases import FakeBase, StubPlanMixin
 
 
-class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
+class FakeQueueProcessingRegistryStore(FakeBase, IQueueProcessingRegistryStore):
 	
 	def __init__(self):
+		super().__init__()
 		self.data_store: dict[Any, QueueProcessingRegistryResponseDTO] = {}
 		self.total_count = 0
-		self.received_calls = []  # for optional spy behavior
-		self.exceptions = {}  # method_name -> exception to raise
-	
-	def __utility(self, method, received_calls: Tuple):
-		
-		method_name = method.__name__
-		
-		if method_name in self.exceptions:
-			raise self.exceptions[method_name]
-		
-		self.received_calls.append((method_name,) + received_calls)
 	
 	def __get_data_store(self, id:str=None):
 		
@@ -43,12 +34,9 @@ class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 		
 		self.total_count = len(self.__get_data_store())
 	
-	def set_exception(self, method, exception: Exception):
-		method_name = method.__name__
-		self.exceptions[method_name] = exception
 	
 	async def save(self, create_model: QueueProcessingRegistryRequestDTO) -> QueueProcessingRegistryResponseDTO:
-		self.__utility(self.save, (create_model,))
+		self._before(self.save, create_model=create_model)
 		
 		response = QueueProcessingRegistryResponseDTO(**asdict(create_model))
 		response.id = uuid4()
@@ -61,8 +49,8 @@ class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 		
 	async def update_status_or_message_id_by_id(self, id: str, status: QRegistryStat,
 	                                            message_id: Optional[str] = None) -> int:
-		self.__utility(
-			self.update_status_or_message_id_by_id, (id, status, message_id)
+		self._before(
+			self.update_status_or_message_id_by_id, id=id, status=status, message_id=message_id
 		)
 		
 		if (not id or not id.strip()) or not status:
@@ -86,8 +74,8 @@ class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 		
 	
 	async def update_step_by_id(self, id: str, step: str) -> int:
-		self.__utility(
-			self.update_step_by_id, (id, step)
+		self._before(
+			self.update_step_by_id, id=id, step=step
 		)
 		
 		if not id or not id.strip() or not step or not step.strip():
@@ -107,8 +95,8 @@ class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 		return updated
 	
 	async def update_status_and_step_by_id(self, id: str, status: QRegistryStat, step: str) -> int:
-		self.__utility(
-			self.update_status_and_step_by_id, (id, status, step)
+		self._before(
+			self.update_status_and_step_by_id, id=id, status=status, step=step
 		)
 		
 		if not id or not id.strip() or not status or not step or not step.strip():
@@ -131,8 +119,8 @@ class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 	async def find_previous_latest_message_by_message_id(self, message_id: str) -> Optional[
 		QueueProcessingRegistryResponseDTO]:
 		
-		self.__utility(
-			self.find_previous_latest_message_by_message_id, (message_id,)
+		self._before(
+			self.find_previous_latest_message_by_message_id, message_id=message_id
 		)
 		
 		data_obj = self.__get_data_store()
@@ -144,51 +132,34 @@ class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 		return None
 	
 	
-class StubQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
+class StubQueueProcessingRegistryStore(StubPlanMixin, IQueueProcessingRegistryStore):
 	
 	def __init__(self):
-		self.stubbed_outputs = {}
-		self.received_calls = []  # for optional spy behavior
-		self.exceptions = {}  # method_name -> exception to raise
-	
-	async def __stubify(self, method, **kwargs):
-		method_name = method.__name__
-		self.received_calls.append((method_name, kwargs))
-		if method_name in self.exceptions:
-			raise self.exceptions[method_name]
-		return self.stubbed_outputs[method_name]
-	
-	def set_output(self, method, output):
-		method_name = method.__name__
-		self.stubbed_outputs[method_name] = output
-	
-	def set_exception(self, method, exception: Exception):
-		method_name = method.__name__
-		self.exceptions[method_name] = exception
+		super().__init__()
 	
 	async def save(self, create_model: QueueProcessingRegistryRequestDTO) -> QueueProcessingRegistryResponseDTO:
-		return await self.__stubify(
+		return await self._stub(
 			self.save,create_model=create_model
 		)
 	
 	async def update_status_or_message_id_by_id(self, id: str, status: QRegistryStat,
 	                                            message_id: Optional[str] = None) -> int:
-		return await self.__stubify(
+		return await self._stub(
 			self.update_status_or_message_id_by_id, id=id, status=status,message_id=message_id
 		)
 	
 	async def update_step_by_id(self, id: str, step: str) -> int:
-		return await self.__stubify(
+		return await self._stub(
 			self.update_step_by_id, id = id, step = step
 		)
 	
 	async def update_status_and_step_by_id(self, id: str, status: QRegistryStat, step: str) -> int:
-		return await self.__stubify(
+		return await self._stub(
 			self.update_status_and_step_by_id, id=id, status=status, step=step
 		)
 	
 	async def find_previous_latest_message_by_message_id(self, message_id: str) -> Optional[
 		QueueProcessingRegistryResponseDTO]:
-		return await self.__stubify(
+		return await self._stub(
 			self.find_previous_latest_message_by_message_id, message_id=message_id
 		)

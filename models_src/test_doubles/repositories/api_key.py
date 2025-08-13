@@ -7,25 +7,16 @@ from uuid import uuid4
 from models_src.dto.api_key import APIKeyRequestDTO, APIKeyResponseDTO
 from models_src.exceptions.utils import ApiKeysErrors, internal_error
 from models_src.repositories.api_key import IApiKeyStore
+from models_src.test_doubles.repositories.bases import FakeBase
 
 
-class FakeApiKeyStore(IApiKeyStore):
+class FakeApiKeyStore(FakeBase, IApiKeyStore):
     
     def __init__(self):
+        super().__init__()
         self.data_store: dict[Any, List[APIKeyResponseDTO]] = {}
         self.existing_hash_set = set()
         self.total_count = 0
-        self.received_calls = []
-        self.exceptions = {}
-
-    def __utility(self, method, received_calls:Tuple):
-
-        method_name = method.__name__
-
-        if method_name in self.exceptions:
-            raise self.exceptions[method_name]
-
-        self.received_calls.append((method_name, ) +  received_calls)
 
     def __get_data_store(self, user_id=None):
 
@@ -48,12 +39,9 @@ class FakeApiKeyStore(IApiKeyStore):
 
         self.total_count = full_total
 
-    def set_exception(self, method, exception: Exception):
-        method_name = method.__name__
-        self.exceptions[method_name] = exception
 
     async def exists_by_hash_key(self, hash_key: str) -> bool:
-        self.__utility(self.exists_by_hash_key, (hash_key,))
+        self._before(self.exists_by_hash_key, hash_key=hash_key)
         
         if not hash_key or not hash_key.strip():
             return False
@@ -61,7 +49,7 @@ class FakeApiKeyStore(IApiKeyStore):
         return hash_key in self.existing_hash_set
 
     async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
-        self.__utility(self.exists_by_hash_key, (create_model,))
+        self._before(self.exists_by_hash_key, create_model=create_model)
 
         response = APIKeyResponseDTO(**asdict(create_model))
         response.id = uuid4()
@@ -74,7 +62,7 @@ class FakeApiKeyStore(IApiKeyStore):
         return response
 
     async def update_is_active_by_user_id_and_api_key_id(self, user_id, api_key_id, is_active) -> int:
-        self.__utility(self.update_is_active_by_user_id_and_api_key_id, (user_id, api_key_id,))
+        self._before(self.update_is_active_by_user_id_and_api_key_id, user_id=user_id, api_key_id=api_key_id, is_active=is_active)
         
         if not user_id or not user_id.strip() or not api_key_id:
             return -1
@@ -90,12 +78,7 @@ class FakeApiKeyStore(IApiKeyStore):
         return updated
     
     async def get_all_by_user_id(self, offset, limit, user_id) -> List[APIKeyResponseDTO]:
-        self.__utility(
-            self.get_all_by_user_id,
-            (
-                user_id,
-            ),
-        )
+        self._before(self.get_all_by_user_id, offset=offset, limit=limit, user_id=user_id)
         
         if not user_id or not user_id.strip():
             raise internal_error(**ApiKeysErrors.MISSING_USER_ID.value)
@@ -115,12 +98,7 @@ class FakeApiKeyStore(IApiKeyStore):
         return sorted_data
     
     async def count_by_user_id(self, user_id: str) -> int:
-        self.__utility(
-            self.count_by_user_id,
-            (
-                user_id,
-            ),
-        )
+        self._before(self.count_by_user_id,user_id=user_id)
         
         if not user_id or not user_id.strip():
             raise internal_error(**ApiKeysErrors.MISSING_USER_ID.value)
@@ -136,12 +114,7 @@ class FakeApiKeyStore(IApiKeyStore):
         return len(is_active_data)
     
     async def find_all_by_user_id(self, user_id) -> List[APIKeyResponseDTO]:
-        self.__utility(
-            self.find_all_by_user_id,
-            (
-                user_id,
-            ),
-        )
+        self._before(self.find_all_by_user_id, user_id=user_id)
 
         if not user_id or not user_id.strip():
             return []
@@ -164,13 +137,7 @@ class FakeApiKeyStore(IApiKeyStore):
         return sorted_data
     
     async def find_first_by_api_key_and_is_active(self, api_key: str, is_active=True) -> Optional[APIKeyResponseDTO]:
-        self.__utility(
-            self.find_first_by_api_key_and_is_active,
-            (
-                api_key,
-                is_active,
-            ),
-        )
+        self._before(self.find_first_by_api_key_and_is_active, api_key=api_key, is_active=is_active)
         
         if not api_key or not api_key.strip():
             return None
@@ -194,12 +161,7 @@ class FakeApiKeyStore(IApiKeyStore):
     
     async def update_last_used_by_id(self, id: str) -> int:
         
-        self.__utility(
-            self.update_last_used_by_id,
-            (
-                id,
-            ),
-        )
+        self._before(self.update_last_used_by_id,id=id)
         
         if not id or not id.strip():
             return -1

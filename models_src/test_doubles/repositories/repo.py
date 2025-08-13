@@ -4,27 +4,19 @@ from typing import Any, List, Optional, Tuple
 
 from models_src.dto.repo import RepoRequestDTO, RepoResponseDTO
 from models_src.repositories.repo import IRepoStore
+from models_src.test_doubles.repositories.bases import FakeBase
 
 
-class FakeRepoStore(IRepoStore):
+class FakeRepoStore(FakeBase, IRepoStore):
     
     def __init__(self):
+        super().__init__()
         self.__data_store: dict[Any, List[RepoResponseDTO]] = {}
         self.total_count = 0
-        self.received_calls = []
-        self.exceptions = {}
 
     @property
     def data_store(self):
         return self.__data_store
-
-    def __utility(self, method, received_calls:Tuple):
-        method_name = method.__name__
-
-        if method_name in self.exceptions:
-            raise self.exceptions[method_name]
-
-        self.received_calls.append((method_name, ) +  received_calls)
 
     def __get_data_store(self, user_id=None):
         if user_id:
@@ -45,26 +37,22 @@ class FakeRepoStore(IRepoStore):
 
         self.total_count = full_total
 
-    def set_exception(self, method, exception: Exception):
-        method_name = method.__name__
-        self.exceptions[method_name] = exception
-
     async def get_all_by_user_id(self, user_id: str, offset: int, limit: int) -> List[RepoResponseDTO]:
-        self.__utility(self.get_all_by_user_id, (user_id, offset, limit))
+        self._before(self.get_all_by_user_id, user_id=user_id, offset=offset, limit=limit)
 
         data= self.__get_data_store(user_id=user_id)
 
         return data[offset : offset + limit]
 
     async def count_by_user_id(self, user_id: str) -> int:
-        self.__utility(self.count_by_user_id, (user_id,))
+        self._before(self.count_by_user_id, user_id=user_id)
 
         data = self.__get_data_store(user_id=user_id)
 
         return len(data)
 
     async def save(self, repo_model: RepoRequestDTO) -> RepoResponseDTO:
-        self.__utility(self.save, (repo_model,))
+        self._before(self.save, repo_model=repo_model)
 
         response = RepoResponseDTO(**asdict(repo_model))
         response.id = uuid.uuid4()
@@ -77,7 +65,7 @@ class FakeRepoStore(IRepoStore):
 
     async def get_by_id(self, repo_id: str) -> RepoResponseDTO:
 
-        self.__utility(self.get_by_id, (repo_id,))
+        self._before(self.get_by_id, repo_id=repo_id)
 
         match = None
         for key, obj_list in self.__get_data_store().items():
@@ -88,7 +76,7 @@ class FakeRepoStore(IRepoStore):
         return match
     
     async def find_by_repo_id(self, repo_id: str) -> Optional[RepoResponseDTO]:
-        self.__utility(self.find_by_repo_id, (repo_id,))
+        self._before(self.find_by_repo_id, repo_id=repo_id)
         
         match = None
         for key, obj_list in self.__get_data_store().items():
@@ -99,7 +87,7 @@ class FakeRepoStore(IRepoStore):
         return match
     
     async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
-        self.__utility(self.find_by_id, (id,))
+        self._before(self.find_by_id, id=id)
         
         match = None
         for key, obj_list in self.__get_data_store().items():
@@ -112,7 +100,7 @@ class FakeRepoStore(IRepoStore):
     async def update_status_by_repo_id(
             self, repo_id:str, status: str, **kwargs: Any
     ) -> int:
-        self.__utility(self.update_status_by_repo_id, (repo_id, status, kwargs))
+        self._before(self.update_status_by_repo_id, repo_id=repo_id, status=status, kwargs=kwargs)
         
         data = self.__get_data_store()
         
@@ -130,7 +118,7 @@ class FakeRepoStore(IRepoStore):
         return updated
     
     async def find_by_user_id_and_html_url(self, user_id: str, html_url: str) -> Optional[RepoResponseDTO]:
-        self.__utility(self.find_by_user_id_and_html_url, (user_id,html_url,))
+        self._before(self.find_by_user_id_and_html_url, user_id=user_id,html_url=html_url)
         match = None
         
         data:List[RepoResponseDTO] = self.__get_data_store(user_id=user_id)
@@ -147,7 +135,7 @@ class FakeRepoStore(IRepoStore):
             config: Ignore since it is only applicable to Tortoise ORM
         """
         
-        self.__utility(self.save_context, (repo_id,user_id,config,))
+        self._before(self.save_context, repo_id=repo_id,user_id=user_id,config=config)
         
         response = RepoResponseDTO(
             repo_id=repo_id, user_id=user_id, status="pending"
@@ -161,6 +149,8 @@ class FakeRepoStore(IRepoStore):
         return response
     
     async def update_repo_system_reference_by_id(self, id: str, repo_system_reference: str) -> int:
+        self._before(self.update_repo_system_reference_by_id, id=id, repo_system_reference=repo_system_reference)
+        
         if not id or not id.strip() or not repo_system_reference or not repo_system_reference.strip():
             return -1
         
