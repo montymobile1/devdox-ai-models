@@ -1,4 +1,5 @@
 import datetime
+import uuid
 from dataclasses import asdict
 from typing import Any, List, Optional, Tuple
 from uuid import uuid4
@@ -29,7 +30,7 @@ class FakeQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 	def __get_data_store(self, id:str=None):
 		
 		if id:
-			return self.data_store.get(id, None)
+			return self.data_store.get(uuid.UUID(id), None)
 		
 		return self.data_store
 	
