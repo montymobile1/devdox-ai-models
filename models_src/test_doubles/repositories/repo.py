@@ -37,7 +37,7 @@ class FakeRepoStore(FakeBase, IRepoStore):
 
         self.total_count = full_total
 
-    async def get_all_by_user_id(
+    async def find_all_by_user_id(
         self, user_id: str, offset: int, limit: int
     ) -> List[RepoResponseDTO]:
         self._before(

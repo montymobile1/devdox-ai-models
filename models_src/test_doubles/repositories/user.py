@@ -1,7 +1,7 @@
 import datetime
 import uuid
 from dataclasses import asdict
-from typing import Any, Tuple
+from typing import Any
 
 from models_src.dto.user import UserRequestDTO, UserResponseDTO
 from models_src.repositories.user import IUserStore

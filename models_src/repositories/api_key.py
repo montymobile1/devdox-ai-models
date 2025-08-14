@@ -16,7 +16,7 @@ class IApiKeyStore(Protocol):
     async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO: ...
 
     @abstractmethod
-    async def get_all_by_user_id(
+    async def find_all_by_user_id(
         self, offset, limit, user_id: str
     ) -> List[APIKeyResponseDTO]: ...
 
@@ -78,7 +78,7 @@ class TortoiseApiKeyStore(IApiKeyStore):
             user_id=user_id, id=api_key_id, is_active=True
         ).update(is_active=is_active)
 
-    def __get_all_api_keys_query(self, user_id: str):
+    def __find_all_api_keys_query(self, user_id: str):
         if not user_id or not user_id.strip():
             raise internal_error(**ApiKeysErrors.MISSING_USER_ID.value)
 
@@ -87,14 +87,14 @@ class TortoiseApiKeyStore(IApiKeyStore):
         return query
 
     async def count_by_user_id(self, user_id: str) -> int:
-        query = self.__get_all_api_keys_query(user_id)
+        query = self.__find_all_api_keys_query(user_id)
         return await query.count()
 
-    async def get_all_by_user_id(
+    async def find_all_by_user_id(
         self, offset, limit, user_id: str
     ) -> List[APIKeyResponseDTO]:
 
-        query = self.__get_all_api_keys_query(user_id)
+        query = self.__find_all_api_keys_query(user_id)
 
         data = (
             await query.order_by("-created_at")

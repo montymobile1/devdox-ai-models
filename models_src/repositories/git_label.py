@@ -18,12 +18,12 @@ class ILabelStore(Protocol):
     async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO: ...
 
     @abstractmethod
-    async def get_all_git_hostings_by_ids(
+    async def find_all_git_hostings_by_ids(
         self, token_ids: Collection[Union[str, UUID]]
     ) -> List[Dict]: ...
 
     @abstractmethod
-    async def get_by_token_id_and_user(
+    async def find_by_token_id_and_user(
         self, token_id: str, user_id: str
     ) -> GitLabelResponseDTO | None: ...
 
@@ -33,12 +33,12 @@ class ILabelStore(Protocol):
     ) -> Optional[GitLabelResponseDTO]: ...
 
     @abstractmethod
-    async def get_all_by_user_id(
+    async def find_all_by_user_id(
         self, offset, limit, user_id, git_hosting: Optional[str] = None
     ) -> list[GitLabelResponseDTO]: ...
 
     @abstractmethod
-    async def get_all_by_user_id_and_label(
+    async def find_all_by_user_id_and_label(
         self, offset, limit, user_id, label: str
     ) -> list[GitLabelResponseDTO]: ...
 
@@ -73,14 +73,14 @@ class TortoiseGitLabelStore(ILabelStore):
     model = GitLabel
     model_mapper = TortoiseModelMapper
 
-    async def get_all_git_hostings_by_ids(
+    async def find_all_git_hostings_by_ids(
         self, token_ids: Collection[Union[str, UUID]]
     ) -> List[Dict]:
         if not token_ids:
             return []
         return await self.model.filter(id__in=token_ids).values("id", "git_hosting")
 
-    async def get_by_token_id_and_user(
+    async def find_by_token_id_and_user(
         self, token_id: str, user_id: str
     ) -> GitLabelResponseDTO | None:
         if not token_id or not token_id.strip() or not user_id or not user_id.strip():
@@ -89,7 +89,7 @@ class TortoiseGitLabelStore(ILabelStore):
         model = await self.model.filter(id=token_id, user_id=user_id).first()
         return self.model_mapper.map_model_to_dataclass(model, GitLabelResponseDTO)
 
-    def __get_by_user_id_query(self, user_id, git_hosting: Optional[str] = None):
+    def __find_by_user_id_query(self, user_id, git_hosting: Optional[str] = None):
         if not user_id:
             raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
 
@@ -100,10 +100,10 @@ class TortoiseGitLabelStore(ILabelStore):
 
         return query
 
-    async def get_all_by_user_id(
+    async def find_all_by_user_id(
         self, offset, limit, user_id, git_hosting: Optional[str] = None
     ) -> list[GitLabelResponseDTO]:
-        query = self.__get_by_user_id_query(user_id, git_hosting)
+        query = self.__find_by_user_id_query(user_id, git_hosting)
 
         git_labels = (
             await query.order_by("-created_at")
@@ -117,11 +117,11 @@ class TortoiseGitLabelStore(ILabelStore):
         )
 
     async def count_by_user_id(self, user_id, git_hosting: Optional[str] = None) -> int:
-        query = self.__get_by_user_id_query(user_id, git_hosting)
+        query = self.__find_by_user_id_query(user_id, git_hosting)
 
         return await query.count()
 
-    def __get_by_user_id_and_label_query(self, user_id, label: str):
+    def __find_by_user_id_and_label_query(self, user_id, label: str):
         if not user_id:
             raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
 
@@ -134,14 +134,14 @@ class TortoiseGitLabelStore(ILabelStore):
 
     async def count_by_user_id_and_label(self, user_id, label: str) -> int:
 
-        query = self.__get_by_user_id_and_label_query(user_id, label)
+        query = self.__find_by_user_id_and_label_query(user_id, label)
         return await query.count()
 
-    async def get_all_by_user_id_and_label(
+    async def find_all_by_user_id_and_label(
         self, offset, limit, user_id, label: str
     ) -> list[GitLabelResponseDTO]:
 
-        query = self.__get_by_user_id_and_label_query(user_id, label)
+        query = self.__find_by_user_id_and_label_query(user_id, label)
 
         git_labels = (
             await query.order_by("-created_at")

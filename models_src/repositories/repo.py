@@ -35,7 +35,7 @@ class IRepoStore(Protocol):
     ) -> Optional[RepoResponseDTO]: ...
 
     @abstractmethod
-    async def get_all_by_user_id(
+    async def find_all_by_user_id(
         self, user_id: str, offset: int, limit: int
     ) -> List[RepoResponseDTO]: ...
 
@@ -69,7 +69,7 @@ class TortoiseRepoStore(IRepoStore):
         """
         pass
 
-    async def get_all_by_user_id(
+    async def find_all_by_user_id(
         self, user_id: str, offset: int, limit: int
     ) -> List[RepoResponseDTO]:
 
