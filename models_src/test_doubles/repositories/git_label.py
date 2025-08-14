@@ -37,11 +37,11 @@ class FakeGitLabelStore(FakeBase, ILabelStore):
 
         self.total_count = full_total
 
-    async def get_all_git_hosting_only_by_token_id_list(
+    async def get_all_git_hostings_by_ids(
         self, token_ids: Collection[Union[str, UUID]]
     ) -> List[Dict]:
         self._before(
-            self.get_all_git_hosting_only_by_token_id_list, token_ids=token_ids
+            self.get_all_git_hostings_by_ids, token_ids=token_ids
         )
 
         if not token_ids:
@@ -216,11 +216,11 @@ class StubGitLabelStore(StubPlanMixin, ILabelStore):
     async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO:
         return await self._stub(self.save, label_model=label_model)
 
-    async def get_all_git_hosting_only_by_token_id_list(
+    async def get_all_git_hostings_by_ids(
         self, token_ids: Collection[Union[str, UUID]]
     ) -> List[Dict]:
         return await self._stub(
-            self.get_all_git_hosting_only_by_token_id_list, token_ids=token_ids
+            self.get_all_git_hostings_by_ids, token_ids=token_ids
         )
 
     async def get_all_by_user_id(

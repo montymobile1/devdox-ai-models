@@ -18,7 +18,7 @@ class ILabelStore(Protocol):
     async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO: ...
 
     @abstractmethod
-    async def get_all_git_hosting_only_by_token_id_list(
+    async def get_all_git_hostings_by_ids(
         self, token_ids: Collection[Union[str, UUID]]
     ) -> List[Dict]: ...
 
@@ -73,7 +73,7 @@ class TortoiseGitLabelStore(ILabelStore):
     model = GitLabel
     model_mapper = TortoiseModelMapper
 
-    async def get_all_git_hosting_only_by_token_id_list(
+    async def get_all_git_hostings_by_ids(
         self, token_ids: Collection[Union[str, UUID]]
     ) -> List[Dict]:
         if not token_ids:
