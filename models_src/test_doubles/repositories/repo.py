@@ -41,7 +41,7 @@ class FakeRepoStore(FakeBase, IRepoStore):
         self, user_id: str, offset: int, limit: int
     ) -> List[RepoResponseDTO]:
         self._before(
-            self.get_all_by_user_id, user_id=user_id, offset=offset, limit=limit
+            self.find_all_by_user_id, user_id=user_id, offset=offset, limit=limit
         )
 
         data = self.__get_data_store(user_id=user_id)
