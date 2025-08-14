@@ -10,7 +10,7 @@ class Repo(Model):
 
     id = fields.UUIDField(primary_key=True, default=uuid.uuid4)
     user_id = fields.CharField(
-     max_length=255, description="User ID who owns this repository"
+        max_length=255, description="User ID who owns this repository"
     )
 
     # Repository basic information
@@ -59,48 +59,50 @@ class Repo(Model):
 
     # Additional metadata
     language = fields.JSONField(null=True, description="Primary programming languages")
-    
+
     size = fields.IntField(
         null=True,
-        description="Size of the Git repository in bytes. Represents only the .git directory contents, including commit history, branches, and git objects. Does not include release assets, LFS files, CI artifacts, or other non-Git storage"
+        description="Size of the Git repository in bytes. Represents only the .git directory contents, including commit history, branches, and git objects. Does not include release assets, LFS files, CI artifacts, or other non-Git storage",
     )
-    
+
     relative_path = fields.CharField(
-        max_length=1024, null=True, description="The path to the repository relative to its hosting platform domain"
+        max_length=1024,
+        null=True,
+        description="The path to the repository relative to its hosting platform domain",
     )
     total_files = fields.IntField(default=0, description="Total files processed")
     total_chunks = fields.IntField(default=0, description="Total code chunks created")
     processing_start_time = fields.DatetimeField(null=True)
     processing_end_time = fields.DatetimeField(null=True)
-    error_message = fields.TextField(null=True, description="Error message if processing failed")
+    error_message = fields.TextField(
+        null=True, description="Error message if processing failed"
+    )
     last_commit = fields.CharField(max_length=255, default="")
     status = fields.CharField(max_length=255, default="pending")
-    
+
     repo_alias_name = fields.CharField(
         max_length=100,
-        description="A user-defined alias for this repository, used locally within this system as an alternative to the official GitHub or GitLab repository name."
+        description="A user-defined alias for this repository, used locally within this system as an alternative to the official GitHub or GitLab repository name.",
     )
 
     repo_user_reference = fields.TextField(
         null=True,
-        description="An optional free-form description or note for this repository. Use this to explain its purpose, provide internal context, or document team-specific information."
+        description="An optional free-form description or note for this repository. Use this to explain its purpose, provide internal context, or document team-specific information.",
     )
-    
+
     repo_system_reference = fields.TextField(
         null=True,
-        description="An optional System generated (no user intervention required) description or note for this repository. Explaining its purpose, provide internal context, or document team-specific information."
+        description="An optional System generated (no user intervention required) description or note for this repository. Explaining its purpose, provide internal context, or document team-specific information.",
     )
-    
+
     class Meta:
         table = "repo"
         table_description = "Repository information from Git providers"
         indexes = [
             ("user_id", "created_at"),
         ]
-        
-        unique_together = (
-            ("user_id", "repo_id"),
-        )
+
+        unique_together = (("user_id", "repo_id"),)
 
     def __str__(self):
         return f"{self.repo_name} "
