@@ -1,5 +1,5 @@
+import datetime
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -17,8 +17,8 @@ class UserResponseDTO:
     membership_level: Optional[str] = None
     token_limit: Optional[int] = None
     token_used: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: Optional[datetime.datetime] = None
+    updated_at: Optional[datetime.datetime] = None
     encryption_salt: Optional[str] = None
 
 

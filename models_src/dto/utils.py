@@ -1,5 +1,5 @@
-from dataclasses import asdict, fields, dataclass
-from typing import Any, List, Optional, Type
+from dataclasses import asdict, fields
+from typing import List, Optional, Type
 
 from tortoise import Model
 

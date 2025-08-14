@@ -56,17 +56,17 @@ class TortoiseApiKeyStore(IApiKeyStore):
         Causing unneeded behavior.
         """
         pass
-
+    
+    async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
+        data = await self.model.create(**asdict(create_model))
+        return self.model_mapper.map_model_to_dataclass(data, APIKeyResponseDTO)
+    
     async def exists_by_hash_key(self, hash_key: str) -> bool:
 
         if not hash_key or not hash_key.strip():
             return False
 
         return await self.model.filter(api_key=hash_key).exists()
-
-    async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
-        data = await self.model.create(**asdict(create_model))
-        return self.model_mapper.map_model_to_dataclass(data, APIKeyResponseDTO)
 
     async def update_is_active_by_user_id_and_api_key_id(
         self, user_id: str, api_key_id: uuid.UUID, is_active: bool
