@@ -11,15 +11,15 @@ class DatabaseConfig:
 
     @staticmethod
     def supabase_config(
-            project_id: str,
-            password: str,
-            database: str = "postgres",
-            user: str = "postgres",
-            port: int = 5432,
-            search_path: str = "public",
-            min_connections: int = 1,
-            max_connections: int = 10,
-            ssl: str = "require"
+        project_id: str,
+        password: str,
+        database: str = "postgres",
+        user: str = "postgres",
+        port: int = 5432,
+        search_path: str = "public",
+        min_connections: int = 1,
+        max_connections: int = 10,
+        ssl: str = "require",
     ) -> Dict[str, Any]:
         """Generate Supabase PostgreSQL configuration."""
         return {
@@ -34,20 +34,20 @@ class DatabaseConfig:
                 "maxsize": max_connections,
                 "ssl": ssl,
                 "server_settings": {"search_path": search_path},
-            }
+            },
         }
 
     @staticmethod
     def postgres_config(
-            host: str,
-            port: int,
-            user: str,
-            password: str,
-            database: str,
-            search_path: str = "public",
-            min_connections: int = 1,
-            max_connections: int = 10,
-            ssl: str = "require"
+        host: str,
+        port: int,
+        user: str,
+        password: str,
+        database: str,
+        search_path: str = "public",
+        min_connections: int = 1,
+        max_connections: int = 10,
+        ssl: str = "require",
     ) -> Dict[str, Any]:
         """Generate PostgreSQL configuration."""
         return {
@@ -62,18 +62,16 @@ class DatabaseConfig:
                 "maxsize": max_connections,
                 "ssl": ssl,
                 "server_settings": {"search_path": search_path},
-            }
+            },
         }
 
 
-
-
 def get_tortoise_config(
-        db_config: Dict[str, Any],
-        app_models: Optional[List[str]] = None,
-        include_aerich: bool = True,
-        use_tz: bool = False,
-        timezone: str = "UTC"
+    db_config: Dict[str, Any],
+    app_models: Optional[List[str]] = None,
+    include_aerich: bool = True,
+    use_tz: bool = False,
+    timezone: str = "UTC",
 ) -> Dict[str, Any]:
     """
     Generate Tortoise ORM configuration compatible with existing microservice setup.
