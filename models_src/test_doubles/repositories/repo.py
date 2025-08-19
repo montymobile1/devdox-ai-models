@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import asdict
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional
 
 from models_src.dto.repo import RepoRequestDTO, RepoResponseDTO
 from models_src.repositories.repo import IRepoStore
@@ -188,7 +188,7 @@ class FakeRepoStore(FakeBase, IRepoStore):
                 break
 
         return updated
-    
+
 class StubRepoStore(StubPlanMixin, IRepoStore):
 
     def __init__(self):
@@ -230,3 +230,9 @@ class StubRepoStore(StubPlanMixin, IRepoStore):
         self, id: str, repo_system_reference: str
     ) -> int:
         return await self._stub(self.update_repo_system_reference_by_id, id=id, repo_system_reference=repo_system_reference)
+
+    async def count_by_user_id(self, user_id: str) -> int:
+        return await self._stub(
+            self.count_by_user_id,
+            user_id=user_id
+        )
