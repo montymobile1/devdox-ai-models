@@ -4,7 +4,7 @@ from typing import Any, List, Optional, Tuple
 
 from models_src.dto.repo import RepoRequestDTO, RepoResponseDTO
 from models_src.repositories.repo import IRepoStore
-from models_src.test_doubles.repositories.bases import FakeBase
+from models_src.test_doubles.repositories.bases import FakeBase, StubPlanMixin
 
 
 class FakeRepoStore(FakeBase, IRepoStore):
@@ -97,7 +97,7 @@ class FakeRepoStore(FakeBase, IRepoStore):
 
         match = None
         for key, obj_list in self.__get_data_store().items():
-            match = next((obj for obj in obj_list if obj.id == id), None)
+            match = next((obj for obj in obj_list if str(obj.id == id)), None)
             if match:
                 break
 
@@ -181,10 +181,52 @@ class FakeRepoStore(FakeBase, IRepoStore):
 
         updated = 0
         for key, obj_list in data.items():
-            match = next((obj for obj in obj_list if obj.id == id), None)
+            match = next((obj for obj in obj_list if str(obj.id) == id), None)
             if match:
                 match.repo_system_reference = repo_system_reference
                 updated += 1
                 break
 
         return updated
+    
+class StubRepoStore(StubPlanMixin, IRepoStore):
+
+    def __init__(self):
+        super().__init__()
+
+    async def find_all_by_user_id(
+        self, user_id: str, offset: int, limit: int
+    ) -> List[RepoResponseDTO]:
+        return await self._stub(self.find_all_by_user_id, user_id=user_id, offset=offset, limit=limit)
+
+    async def save(self, repo_model: RepoRequestDTO) -> RepoResponseDTO:
+        return await self._stub(self.save, repo_model=repo_model)
+
+    async def get_by_id(self, repo_id: str) -> RepoResponseDTO:
+        return await self._stub(self.get_by_id, repo_id=repo_id)
+
+    async def find_by_repo_id(self, repo_id: str) -> Optional[RepoResponseDTO]:
+        return await self._stub(self.find_by_repo_id, repo_id=repo_id )
+
+    async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
+        return await self._stub(self.find_by_id, id=id)
+
+    async def update_status_by_repo_id(
+        self, repo_id: str, status: str, **kwargs: Any
+    ) -> int:
+        return await self._stub(self.update_status_by_repo_id, repo_id=repo_id, status=status, kwargs=kwargs)
+
+    async def find_by_user_id_and_html_url(
+        self, user_id: str, html_url: str
+    ) -> Optional[RepoResponseDTO]:
+        return await self._stub(self.find_by_user_id_and_html_url, user_id=user_id, html_url=html_url)
+
+    async def save_context(
+        self, repo_id: str, user_id: str, config: dict
+    ) -> RepoResponseDTO:
+        return await self._stub(self.save_context, repo_id=repo_id, user_id=user_id, config=config)
+
+    async def update_repo_system_reference_by_id(
+        self, id: str, repo_system_reference: str
+    ) -> int:
+        return await self._stub(self.update_repo_system_reference_by_id, id=id, repo_system_reference=repo_system_reference)

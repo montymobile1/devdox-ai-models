@@ -45,7 +45,7 @@ class FakeQueueProcessingRegistryStore(FakeBase, IQueueProcessingRegistryStore):
 
         response = QueueProcessingRegistryResponseDTO(**asdict(create_model))
         response.id = uuid4()
-        response.created_at = datetime.datetime.now(datetime.timezone.utc)
+        response.claimed_at = datetime.datetime.now(datetime.timezone.utc)
 
         self.__set_data_store(response)
         self.total_count += 1

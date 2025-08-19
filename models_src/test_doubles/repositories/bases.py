@@ -1,3 +1,4 @@
+import inspect
 from typing import Any, Callable, Dict, List, Tuple
 
 
@@ -49,9 +50,14 @@ class StubPlanMixin(CallSpyMixin, ExceptionPlanMixin):
         mname = self._touch(method, **kwargs)
         self._maybe_raise(mname)
         out = self._outputs[mname]
-        # Allow dynamic outputs
-        return await out(**kwargs) if callable(out) else out
-
+        
+        # handle both sync/async callables safely:
+        if callable(out):
+            result = out(**kwargs)
+            if inspect.isawaitable(result):
+                return await result
+            return result
+        return out
 
 class FakeBase(CallSpyMixin, ExceptionPlanMixin):
     """

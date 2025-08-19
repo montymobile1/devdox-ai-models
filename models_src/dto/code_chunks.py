@@ -10,17 +10,17 @@ class CodeChunksResponseDTO:
     API Key model for storing user's API keys for external services
     """
 
-    id: Optional[uuid.UUID]
-    user_id: Optional[str]
-    repo_id: Optional[str]
-    content: Optional[str]
-    file_name: Optional[str]
-    file_path: Optional[str]
-    file_size: Optional[int]
-    commit_number: Optional[str]
-    embedding: Optional[Any]
-    metadata: Optional[dict]
-    created_at: Optional[datetime.datetime]
+    id: Optional[uuid.UUID] = None
+    user_id: Optional[str] = None
+    repo_id: Optional[str] = None
+    content: Optional[str] = None
+    file_name: Optional[str] = None
+    file_path: Optional[str] = None
+    file_size: Optional[int] = None
+    commit_number: Optional[str] = None
+    embedding: Optional[Any] = None
+    metadata: Optional[dict] = None
+    created_at: Optional[datetime.datetime] = None
 
 
 @dataclasses.dataclass

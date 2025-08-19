@@ -49,8 +49,8 @@ class FakeGitLabelStore(FakeBase, ILabelStore):
 
         match_list = []
         for key, obj_list in self.data_store.items():
-            match = next((obj for obj in obj_list if obj.id in token_ids), None)
-            if match:
+            matches = [obj for obj in obj_list if str(obj.id) in token_ids]
+            for match in matches:
                 match_list.append({"id": match.id, "git_hosting": match.git_hosting})
 
         return match_list
@@ -67,7 +67,7 @@ class FakeGitLabelStore(FakeBase, ILabelStore):
 
         result = None
         for record in user_id_data:
-            if record.id == token_id:
+            if str(record.id) == token_id:
                 result = record
                 break
 
@@ -201,7 +201,7 @@ class FakeGitLabelStore(FakeBase, ILabelStore):
         match = None
 
         for record in data:
-            if record.id == id and record.git_hosting == git_hosting:
+            if str(record.id) == id and record.git_hosting == git_hosting:
                 match = record
                 break
 
