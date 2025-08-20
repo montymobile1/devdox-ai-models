@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64.0", "wheel", "setuptools-scm>=8.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -30,15 +30,13 @@ dependencies = [
     "pydantic>=2.0.0",
     "asyncpg>=0.28.0",
     "aerich>=0.7.2",
-    "pytest>=7.0.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-cov>=4.0.0",
-    "coverage>=7.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
     "black>=22.0.0",
     "flake8>=4.0.0",
     "mypy>=1.0.0",
@@ -61,37 +59,9 @@ Repository = "https://github.com/montymobile1/devdox-ai-models.git"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["models_src*"]
-exclude = ["tests*"]
-
-# Coverage configuration
-[tool.coverage.run]
-source = ["models_src"]
-omit = [
-    "*/test/*",
-    "*/test_*",
-    "setup.py"
-]
-
-[tool.pytest.ini_options]
-testpaths = ["test"]
-python_files = ["test_*.py", "*_test.py"]
-asyncio_mode = "auto"
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = [
-    "--strict-markers",
-    "--strict-config",
-    "--verbose",
-    "--cov=models_src",        # Added: coverage integration
-    "--cov-report=xml",        # Added: XML report for CI
-    "--cov-report=term-missing", # Added: terminal report
-]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-]
+exclude = ["test*"]
 
 [tool.black]
 line-length = 88
-target-version = ['py312']
-include = '\.pyi?$'
+target-version = ['py38']
+include = '\.pyi?'
