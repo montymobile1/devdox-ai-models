@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=64.0", "wheel", "setuptools-scm>=8.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -30,14 +30,15 @@ dependencies = [
     "pydantic>=2.0.0",
     "asyncpg>=0.28.0",
     "aerich>=0.7.2",
-]
-
-[project.optional-dependencies]
-dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
     "coverage>=7.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+
     "black>=22.0.0",
     "flake8>=4.0.0",
     "mypy>=1.0.0",
@@ -93,4 +94,4 @@ markers = [
 [tool.black]
 line-length = 88
 target-version = ['py312']
-include = '\.pyi?'
+include = '\.pyi?$'

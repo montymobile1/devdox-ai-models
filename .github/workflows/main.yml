@@ -26,12 +26,12 @@ jobs:
           pip install pytest
           pip install coverage
 
+
       - name: Run tests and generate coverage
         run: |
           # Run tests with coverage
-          python -m coverage run -m pytest
-          python -m coverage xml
-          python -m coverage report
+          coverage run -m pytest test
+          coverage xml
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
