@@ -28,7 +28,6 @@ classifiers = [
 dependencies = [
     "tortoise-orm>=0.20.0",
     "pydantic>=2.0.0",
-    "tortoise-orm>=0.20.0",
     "asyncpg>=0.28.0",
     "aerich>=0.7.2",
 ]
@@ -73,14 +72,18 @@ omit = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["test"]
 python_files = ["test_*.py", "*_test.py"]
+asyncio_mode = "auto"
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "--strict-markers",
     "--strict-config",
     "--verbose",
+    "--cov=models_src",        # Added: coverage integration
+    "--cov-report=xml",        # Added: XML report for CI
+    "--cov-report=term-missing", # Added: terminal report
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
@@ -90,4 +93,4 @@ markers = [
 [tool.black]
 line-length = 88
 target-version = ['py312']
-include = '\.pyi?
+include = '\.pyi?'
