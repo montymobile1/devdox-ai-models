@@ -1,9 +1,9 @@
 __version__ = "0.1.0"
 
-from .models import *
-from .utils.database import init_db, close_db
+from models_src.models import *
+from utils.database import init_tortoise, close_tortoise
 
 __all__ = [
-    "init_db",
-    "close_db",
+    "init_tortoise",
+    "close_tortoise",
 ]

@@ -7,7 +7,7 @@ from uuid import uuid4
 from models_src.dto.api_key import APIKeyRequestDTO, APIKeyResponseDTO
 from models_src.exceptions.utils import ApiKeysErrors, internal_error
 from models_src.repositories.api_key import IApiKeyStore
-from models_src.test_doubles.repositories.bases import FakeBase
+from models_src.test_doubles.repositories.bases import FakeBase, StubPlanMixin
 
 
 class FakeApiKeyStore(FakeBase, IApiKeyStore):
@@ -161,6 +161,41 @@ class FakeApiKeyStore(FakeBase, IApiKeyStore):
             for i in val:
                 if i.id == uuid.UUID(id):
                     updated += 1
-                    i.last_used = datetime.datetime.now(datetime.timezone.utc)
+                    i.last_used_at = datetime.datetime.now(datetime.timezone.utc)
 
         return updated
+
+class StubApiKeyStore(StubPlanMixin, IApiKeyStore):
+    
+    def __init__(self):
+        super().__init__()
+
+    async def exists_by_hash_key(self, hash_key: str) -> bool:
+        return await self._stub(self.exists_by_hash_key, hash_key=hash_key)
+
+    async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
+        return await self._stub(self.save, create_model=create_model)
+
+    async def update_is_active_by_user_id_and_api_key_id(
+        self, user_id, api_key_id, is_active
+    ) -> int:
+        return await self._stub(
+            self.update_is_active_by_user_id_and_api_key_id,
+            user_id=user_id, api_key_id=api_key_id, is_active=is_active
+        )
+
+    async def find_all_by_user_id(
+        self, offset, limit, user_id
+    ) -> List[APIKeyResponseDTO]:
+        return await self._stub(self.find_all_by_user_id, offset=offset, limit=limit, user_id=user_id)
+
+    async def count_by_user_id(self, user_id: str) -> int:
+        return await self._stub(self.count_by_user_id, user_id=user_id)
+
+    async def find_first_by_api_key_and_is_active(
+        self, api_key: str, is_active=True
+    ) -> Optional[APIKeyResponseDTO]:
+        return await self._stub(self.find_first_by_api_key_and_is_active, api_key=api_key, is_active=is_active)
+
+    async def update_last_used_by_id(self, id: str) -> int:
+        return await self._stub(self.update_last_used_by_id, id=id)
