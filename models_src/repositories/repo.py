@@ -51,7 +51,10 @@ class IRepoStore(Protocol):
     async def update_repo_system_reference_by_id(
         self, id: str, repo_system_reference: str
     ) -> int: ...
-
+    
+    @abstractmethod
+    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> RepoResponseDTO: ...
+    
 
 class TortoiseRepoStore(IRepoStore):
     model = Repo
@@ -162,3 +165,9 @@ class TortoiseRepoStore(IRepoStore):
         return await self.model.filter(id=id).update(
             repo_system_reference=repo_system_reference
         )
+    
+    async def find_by_user_and_path(
+        self, user_id: str, relative_path: str
+    ) -> RepoResponseDTO:
+        raw_data= await Repo.filter(user_id=user_id, relative_path=relative_path).first()
+        return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
