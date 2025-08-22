@@ -115,11 +115,11 @@ class FakeApiKeyStore(FakeBase, IApiKeyStore):
 
         return len(is_active_data)
 
-    async def find_first_by_api_key_and_is_active(
+    async def find_by_active_api_key(
         self, api_key: str, is_active=True
     ) -> Optional[APIKeyResponseDTO]:
         self._before(
-            self.find_first_by_api_key_and_is_active,
+            self.find_by_active_api_key,
             api_key=api_key,
             is_active=is_active,
         )
@@ -192,10 +192,10 @@ class StubApiKeyStore(StubPlanMixin, IApiKeyStore):
     async def count_by_user_id(self, user_id: str) -> int:
         return await self._stub(self.count_by_user_id, user_id=user_id)
 
-    async def find_first_by_api_key_and_is_active(
+    async def find_by_active_api_key(
         self, api_key: str, is_active=True
     ) -> Optional[APIKeyResponseDTO]:
-        return await self._stub(self.find_first_by_api_key_and_is_active, api_key=api_key, is_active=is_active)
+        return await self._stub(self.find_by_active_api_key, api_key=api_key, is_active=is_active)
 
     async def update_last_used_by_id(self, id: str) -> int:
         return await self._stub(self.update_last_used_by_id, id=id)

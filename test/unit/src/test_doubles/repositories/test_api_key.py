@@ -84,15 +84,15 @@ class TestFakeApiKeyStore:
         assert updated == 1
         assert dto.is_active is False
     
-    async def test_find_first_by_api_key_and_is_active_returns_match(self):
+    async def test_find_by_active_api_key_returns_match(self):
         fake = FakeApiKeyStore()
         dto = make_api_key_response(api_key="match")
         fake.set_fake_data([dto])
     
-        result = await fake.find_first_by_api_key_and_is_active("match")
+        result = await fake.find_by_active_api_key("match")
         assert result == dto
     
-        result_none = await fake.find_first_by_api_key_and_is_active("missing")
+        result_none = await fake.find_by_active_api_key("missing")
         assert result_none is None
     
     async def test_update_last_used_by_id_sets_timestamp(self):
@@ -129,7 +129,7 @@ class TestStubApiKeyStore:
         count_by_user_id = stub.count_by_user_id
         exists_by_hash_key = stub.exists_by_hash_key
         update_is_active_by_user_id_and_api_key_id = stub.update_is_active_by_user_id_and_api_key_id
-        find_first_by_api_key_and_is_active = stub.find_first_by_api_key_and_is_active
+        find_by_active_api_key = stub.find_by_active_api_key
         update_last_used_by_id = stub.update_last_used_by_id
 
         generated_response = make_api_key_response()
@@ -140,7 +140,7 @@ class TestStubApiKeyStore:
             count_by_user_id.__name__: len([generated_response]),
             exists_by_hash_key.__name__: generated_response.is_active,
             update_is_active_by_user_id_and_api_key_id.__name__: len([generated_response]),
-            find_first_by_api_key_and_is_active.__name__: generated_response,
+            find_by_active_api_key.__name__: generated_response,
             update_last_used_by_id.__name__: len([generated_response]),
         }
 
@@ -149,7 +149,7 @@ class TestStubApiKeyStore:
         stub.set_output(count_by_user_id, expected_result.get(count_by_user_id.__name__) )
         stub.set_output(exists_by_hash_key, expected_result.get(exists_by_hash_key.__name__) )
         stub.set_output(update_is_active_by_user_id_and_api_key_id, expected_result.get(update_is_active_by_user_id_and_api_key_id.__name__) )
-        stub.set_output(find_first_by_api_key_and_is_active, expected_result.get(find_first_by_api_key_and_is_active.__name__) )
+        stub.set_output(find_by_active_api_key, expected_result.get(find_by_active_api_key.__name__) )
         stub.set_output(update_last_used_by_id, expected_result.get(update_last_used_by_id.__name__) )
 
         await save(create_model=APIKeyRequestDTO(
@@ -162,7 +162,7 @@ class TestStubApiKeyStore:
         await count_by_user_id(user_id=generated_response.user_id)
         await exists_by_hash_key(hash_key=generated_response.api_key)
         await update_is_active_by_user_id_and_api_key_id(user_id=generated_response.user_id, api_key_id=generated_response.id, is_active=generated_response.is_active)
-        await find_first_by_api_key_and_is_active(api_key=generated_response.api_key, is_active=generated_response.is_active)
+        await find_by_active_api_key(api_key=generated_response.api_key, is_active=generated_response.is_active)
         await update_last_used_by_id(id=str(generated_response.id))
 
         assert expected_result == stub._outputs
