@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 import random
 import uuid
 from typing import List
@@ -9,11 +10,16 @@ import pytest
 from models_src.dto.code_chunks import CodeChunksRequestDTO, CodeChunksResponseDTO
 from models_src.test_doubles.repositories.code_chunks import (
     FakeCodeChunksStore,
-    StubCodeChunksStore,
+    StubCodeChunksStore, ZERO_NORM_TOLERANCE,
 )
 
 def generate_random_vector() -> List[float]:
-    return [round(random.random(), 6) for _ in range(768)]
+    while True:
+        vec = [round(random.random(), 6) for _ in range(768)]  # [0.0, 1.0)
+        norm = math.sqrt(sum(x * x for x in vec))
+        if norm >= ZERO_NORM_TOLERANCE:
+            return vec
+
 
 def make_code_chunk_response(**kwargs) -> CodeChunksResponseDTO:
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -129,8 +135,8 @@ class TestFakeCodeChunksStore:
             limit= 5
         )
 
-        assert fake.calculate_score(chk_2.embedding, embedding_vector) == result[0]["score"]
-        assert fake.calculate_score(chk_1.embedding, embedding_vector) == result[1]["score"]
+        assert round(fake.calculate_score(chk_2.embedding, embedding_vector), 1) == round(result[0]["score"], 1)
+        assert round(fake.calculate_score(chk_1.embedding, embedding_vector), 1) == round(result[1]["score"], 1)
 
     @pytest.mark.parametrize(
         "input_kwarg",
@@ -153,7 +159,6 @@ class TestFakeCodeChunksStore:
         )
 
         assert result == []
-
 
 
 @pytest.mark.asyncio

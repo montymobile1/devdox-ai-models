@@ -10,6 +10,7 @@ from models_src.repositories.code_chunks import ICodeChunksStore
 from models_src.test_doubles.repositories.bases import FakeBase, StubPlanMixin
 
 EMBED_DIM = 768
+ZERO_NORM_TOLERANCE = 1e-12
 
 class FakeCodeChunksStore(FakeBase, ICodeChunksStore):
 
@@ -82,7 +83,7 @@ class FakeCodeChunksStore(FakeBase, ICodeChunksStore):
         """
         Attempts to mimic the postgresql cosine distance calculation the "<=>" part
         """
-        ZERO_NORM_TOLERANCE = 1e-12
+        
 
         if not vec1 or not vec2 or len(vec1) != len(vec2):
             return 1.0
