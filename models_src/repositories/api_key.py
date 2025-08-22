@@ -32,7 +32,7 @@ class IApiKeyStore(Protocol):
     ) -> int: ...
 
     @abstractmethod
-    async def find_first_by_api_key_and_is_active(
+    async def find_by_active_api_key(
         self, api_key: str, is_active=True
     ) -> Optional[APIKeyResponseDTO]: ...
 
@@ -105,7 +105,7 @@ class TortoiseApiKeyStore(IApiKeyStore):
 
         return self.model_mapper.map_models_to_dataclasses_list(data, APIKeyResponseDTO)
 
-    async def find_first_by_api_key_and_is_active(
+    async def find_by_active_api_key(
         self, api_key: str, is_active=True
     ) -> Optional[APIKeyResponseDTO]:
 

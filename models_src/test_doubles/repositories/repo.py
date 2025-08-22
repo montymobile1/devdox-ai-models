@@ -188,6 +188,25 @@ class FakeRepoStore(FakeBase, IRepoStore):
                 break
 
         return updated
+    
+    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> RepoResponseDTO:
+        self._before(
+            self.find_by_user_and_path,
+            user_id=user_id,
+            relative_path=relative_path,
+        )
+        
+        all_data = self.__get_data_store(user_id=user_id)
+        
+        result = None
+        for data in all_data:
+            if data.relative_path == relative_path:
+                result = data
+                break
+        
+        return result
+        
+
 
 class StubRepoStore(StubPlanMixin, IRepoStore):
 
@@ -235,4 +254,11 @@ class StubRepoStore(StubPlanMixin, IRepoStore):
         return await self._stub(
             self.count_by_user_id,
             user_id=user_id
+        )
+    
+    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> RepoResponseDTO:
+        return await self._stub(
+            self.find_by_user_and_path,
+            user_id=user_id,
+            relative_path=relative_path
         )
