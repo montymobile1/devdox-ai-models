@@ -4,7 +4,7 @@ import datetime
 import pytest
 
 from models_src.dto.repo import RepoRequestDTO, RepoResponseDTO
-from models_src.test_doubles.repositories.repo import FakeRepoStore
+from models_src.test_doubles.repositories.repo import FakeRepoStore, StubRepoStore
 
 
 def make_repo_response(**overrides) -> RepoResponseDTO:
@@ -176,11 +176,100 @@ class TestFakeRepoStore:
         b = make_repo_response(user_id="u1", relative_path="rid-1")
         c = make_repo_response(user_id="u1", relative_path="xyz")
         d = make_repo_response(user_id="u2")
-        
-        
+
         store.set_fake_data([a,b,c,d])
-        
+
         result = await store.find_by_user_and_path(user_id=b.user_id, relative_path=b.relative_path)
-        
+
         assert result == b
+
+
+@pytest.mark.asyncio
+class TestStubRepoStoreStore:
+    async def test_output_mechanism(self) -> None:
+
+        # ARRANGE
+        stub = StubRepoStore()
+
+        save = stub.save
+        get_by_id = stub.get_by_id
+        find_by_repo_id = stub.find_by_repo_id
+        find_by_id = stub.find_by_id
+        update_status_by_repo_id = stub.update_status_by_repo_id
+        find_by_user_id_and_html_url = stub.find_by_user_id_and_html_url
+        save_context = stub.save_context
+        update_repo_system_reference_by_id = stub.update_repo_system_reference_by_id
+        count_by_user_id = stub.count_by_user_id
+        find_by_user_and_path = stub.find_by_user_and_path
+
+        generated_response = make_repo_response()
+
+        expected_result = {
+            save.__name__: generated_response,
+            get_by_id.__name__: generated_response,
+            find_by_repo_id.__name__: generated_response,
+            find_by_id.__name__: generated_response,
+            update_status_by_repo_id.__name__: 1,
+            find_by_user_id_and_html_url.__name__: generated_response,
+            save_context.__name__: generated_response,
+            update_repo_system_reference_by_id.__name__: 1,
+            count_by_user_id.__name__: 500,
+            find_by_user_and_path.__name__: generated_response
+        }
+
+        stub.set_output(save, expected_result.get(save.__name__))
+        stub.set_output(get_by_id, expected_result.get(get_by_id.__name__))
+        stub.set_output(find_by_repo_id, expected_result.get(find_by_repo_id.__name__))
+        stub.set_output(find_by_id, expected_result.get(find_by_id.__name__))
+        stub.set_output(update_status_by_repo_id, expected_result.get(update_status_by_repo_id.__name__))
+        stub.set_output(find_by_user_id_and_html_url, expected_result.get(find_by_user_id_and_html_url.__name__))
+        stub.set_output(save_context, expected_result.get(save_context.__name__))
+        stub.set_output(update_repo_system_reference_by_id, expected_result.get(update_repo_system_reference_by_id.__name__))
+        stub.set_output(count_by_user_id, expected_result.get(count_by_user_id.__name__))
+        stub.set_output(find_by_user_and_path, expected_result.get(find_by_user_and_path.__name__))
+
+        # ACT
+
+        await save(
+            RepoRequestDTO(
+                user_id=generated_response.user_id,
+                repo_id=generated_response.repo_id,
+                repo_name=generated_response.repo_name,
+                html_url=generated_response.html_url,
+                repo_alias_name=generated_response.repo_alias_name,
+                description=generated_response.description,
+                default_branch=generated_response.default_branch,
+                forks_count=generated_response.forks_count,
+                stargazers_count=generated_response.stargazers_count,
+                is_private=generated_response.is_private,
+                visibility=generated_response.visibility,
+                token_id=generated_response.token_id,
+                repo_created_at=generated_response.repo_created_at,
+                repo_updated_at=generated_response.repo_updated_at,
+                language=generated_response.language,
+                size=generated_response.size,
+                relative_path=generated_response.relative_path,
+                total_files=generated_response.total_files,
+                total_chunks=generated_response.total_chunks,
+                processing_start_time=generated_response.processing_start_time,
+                processing_end_time=generated_response.processing_end_time,
+                error_message=generated_response.error_message,
+                last_commit=generated_response.last_commit,
+                status=generated_response.status,
+                repo_user_reference=generated_response.repo_user_reference,
+                repo_system_reference=generated_response.repo_system_reference
+            )
+        )
         
+        await get_by_id(repo_id=generated_response.repo_id)
+        await find_by_repo_id(repo_id=generated_response.repo_id)
+        await find_by_id(id=str(generated_response.id))
+        await update_status_by_repo_id(repo_id=generated_response.repo_id, status=generated_response.status)
+        await find_by_user_id_and_html_url(user_id=generated_response.user_id, html_url=generated_response.html_url)
+        await save_context(repo_id=generated_response.repo_id, user_id=generated_response.user_id, config={})
+        await update_repo_system_reference_by_id(id=str(generated_response.id), repo_system_reference=generated_response.repo_system_reference)
+        await count_by_user_id(user_id=generated_response.user_id)
+        await find_by_user_and_path(user_id=generated_response.user_id, relative_path=generated_response.relative_path)
+
+        # ASSERT
+        assert expected_result == stub._outputs

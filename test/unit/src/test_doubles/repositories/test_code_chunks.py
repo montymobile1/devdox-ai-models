@@ -3,6 +3,7 @@ import logging
 import math
 import random
 import uuid
+from dataclasses import asdict
 from typing import List
 
 import pytest
@@ -32,7 +33,7 @@ def make_code_chunk_response(**kwargs) -> CodeChunksResponseDTO:
         file_path=kwargs.get("file_path", "/main.py"),
         file_size=kwargs.get("file_size", 123),
         commit_number=kwargs.get("commit_number", "abc123"),
-        embedding=kwargs.get("embedding"),
+        embedding=kwargs.get("embedding") if kwargs.get("embedding") else generate_random_vector(),
         metadata=kwargs.get("metadata", {}),
         created_at=kwargs.get("created_at", now)
     )
@@ -168,16 +169,22 @@ class TestStubCodeChunksStore:
 
         save = stub.save
         find_all_by_repo_id_with_limit = stub.find_all_by_repo_id_with_limit
+        get_repo_file_chunks = stub.get_repo_file_chunks
+        get_user_repo_chunks = stub.get_user_repo_chunks
 
         generated_response = make_code_chunk_response()
 
         expected_result = {
             save.__name__: generated_response,
             find_all_by_repo_id_with_limit.__name__: [generated_response,generated_response],
+            get_repo_file_chunks.__name__: [{"content": generated_response.content}, {"content": generated_response.content}],
+            get_user_repo_chunks.__name__: [asdict(generated_response), asdict(generated_response)],
         }
 
         stub.set_output(save, expected_result.get(save.__name__) )
         stub.set_output(find_all_by_repo_id_with_limit, expected_result.get(find_all_by_repo_id_with_limit.__name__) )
+        stub.set_output(get_repo_file_chunks, expected_result.get(get_repo_file_chunks.__name__) )
+        stub.set_output(get_user_repo_chunks, expected_result.get(get_user_repo_chunks.__name__) )
 
         await save(create_model=CodeChunksRequestDTO(
             user_id="u1",
@@ -190,5 +197,9 @@ class TestStubCodeChunksStore:
         ))
         
         await find_all_by_repo_id_with_limit(repo_id=generated_response.repo_id, limit= 100)
+        
+        await get_repo_file_chunks(user_id=generated_response.user_id, repo_id=generated_response.repo_id, file_name=generated_response.file_name)
+        
+        await get_user_repo_chunks(user_id=generated_response.user_id, repo_id=generated_response.repo_id, query_embedding=generate_random_vector(), limit= 5)
 
         assert expected_result == stub._outputs
