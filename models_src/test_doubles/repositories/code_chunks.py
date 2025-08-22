@@ -78,19 +78,28 @@ class FakeCodeChunksStore(FakeBase, ICodeChunksStore):
                 returned_data.append({"content": data.content})
         return returned_data
 
-    def __cosine_distance(self, vec1: List[float] | None, vec2: List[float] | None) -> float:
+    def calculate_score(self, vec1: List[float] | None, vec2: List[float] | None) -> float:
         """
         Attempts to mimic the postgresql cosine distance calculation the "<=>" part
         """
+        ZERO_NORM_TOLERANCE = 1e-12
+
         if not vec1 or not vec2 or len(vec1) != len(vec2):
             return 1.0
         # norms
         n1 = math.sqrt(sum(x * x for x in vec1))
         n2 = math.sqrt(sum(y * y for y in vec2))
-        if n1 == 0.0 or n2 == 0.0:
+        
+        if n1 < ZERO_NORM_TOLERANCE or n2 < ZERO_NORM_TOLERANCE:
             return 1.0
+        
         sim = sum(a * b for a, b in zip(vec1, vec2)) / (n1 * n2)
-        return 1 - sim  # distance
+
+        distance = 1 - sim
+
+        score = 1 - distance  # same as SQL: 1 - (embedding <=> $1)
+
+        return score
 
     async def get_user_repo_chunks(
         self,
@@ -130,8 +139,7 @@ class FakeCodeChunksStore(FakeBase, ICodeChunksStore):
             if str(row.user_id) != str(user_id) or str(row.repo_id) != str(repo_id):
                 continue
             # row.embedding should be List[float] (length EMBED_DIM) or None
-            dist = self.__cosine_distance(getattr(row, "embedding", None), embedding)
-            score = 1 - dist  # same as SQL: 1 - (embedding <=> $1)
+            score = self.calculate_score(getattr(row, "embedding", None), embedding)
             row_dict = asdict(row)
             out = dict(row_dict)
             out["score"] = score

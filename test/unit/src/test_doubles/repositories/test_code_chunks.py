@@ -1,5 +1,9 @@
 import datetime
+import logging
+import random
 import uuid
+from typing import List
+
 import pytest
 
 from models_src.dto.code_chunks import CodeChunksRequestDTO, CodeChunksResponseDTO
@@ -8,6 +12,8 @@ from models_src.test_doubles.repositories.code_chunks import (
     StubCodeChunksStore,
 )
 
+def generate_random_vector() -> List[float]:
+    return [round(random.random(), 6) for _ in range(768)]
 
 def make_code_chunk_response(**kwargs) -> CodeChunksResponseDTO:
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -22,7 +28,7 @@ def make_code_chunk_response(**kwargs) -> CodeChunksResponseDTO:
         commit_number=kwargs.get("commit_number", "abc123"),
         embedding=kwargs.get("embedding"),
         metadata=kwargs.get("metadata", {}),
-        created_at=kwargs.get("created_at", now),
+        created_at=kwargs.get("created_at", now)
     )
 
 @pytest.mark.asyncio
@@ -31,11 +37,11 @@ class TestFakeCodeChunksStore:
         fake = FakeCodeChunksStore()
         data = [make_code_chunk_response(repo_id="r1"), make_code_chunk_response(repo_id="r2")]
         fake.set_fake_data(data)
-    
+
         assert fake.total_count == 2
         assert len(fake.data_store) == 2
         assert all(isinstance(item, CodeChunksResponseDTO) for item in fake.data_store)
-    
+
     async def test_save_inserts_data_correctly(self):
         fake = FakeCodeChunksStore()
         dto = CodeChunksRequestDTO(
@@ -48,38 +54,107 @@ class TestFakeCodeChunksStore:
             commit_number="commit1",
         )
         result = await fake.save(dto)
-    
+
         assert result.id is not None
         assert result.created_at is not None
         assert result.repo_id == "r1"
         assert fake.total_count == 1
         assert result in fake.data_store
-    
+
     async def test_find_all_by_repo_id_with_limit(self):
         fake = FakeCodeChunksStore()
         r1 = make_code_chunk_response(repo_id="r1")
         r2 = make_code_chunk_response(repo_id="r1")
         r3 = make_code_chunk_response(repo_id="r2")
         fake.set_fake_data([r1, r2, r3])
-    
+
         result = await fake.find_all_by_repo_id_with_limit(repo_id="r1", limit=2)
-    
+
         assert len(result) == 2
         assert all(r.repo_id == "r1" for r in result)
-    
+
     async def test_find_all_by_repo_id_with_limit_applies_limit(self):
         fake = FakeCodeChunksStore()
         chunks = [make_code_chunk_response(repo_id="repo") for _ in range(5)]
         fake.set_fake_data(chunks)
-    
+
         result = await fake.find_all_by_repo_id_with_limit(repo_id="repo", limit=3)
-    
+
         assert len(result) == 3
-    
+
     async def test_find_all_by_repo_id_with_limit_handles_empty(self):
         fake = FakeCodeChunksStore()
         result = await fake.find_all_by_repo_id_with_limit(repo_id="not-there", limit=5)
         assert result == []
+
+    async def test_get_repo_file_chunks(self):
+        fake = FakeCodeChunksStore()
+
+        chk_1 = make_code_chunk_response(file_name="xyz_12345", content="print('xyz_12345')", created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2))
+        chk_2 = make_code_chunk_response(file_name="12345_xyz", content="print('12345_xyz')", created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1))
+        chk_3 = make_code_chunk_response(repo_id="different_repo_id", file_name="xyz", content="print('different_repo_id')")
+
+        fake.set_fake_data([chk_1, chk_2, chk_3])
+
+        result = await fake.get_repo_file_chunks(user_id=chk_1.user_id , repo_id=chk_1.repo_id,  file_name="xyz")
+        assert [{"content": chk_2.content}, {"content": chk_1.content}] == result
+
+    async def test_similarity_search_success(self):
+        fake = FakeCodeChunksStore()
+
+        embedding_vector = generate_random_vector()
+
+        chk_1 = make_code_chunk_response(
+            file_name="xyz_12345",
+            content="print('xyz_12345')",
+            embedding=generate_random_vector(),
+            created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2)
+        )
+
+        chk_2 = make_code_chunk_response(
+            file_name="12345_xyz",
+            content="print('12345_xyz')",
+            embedding=generate_random_vector(),
+            created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
+        )
+
+        chk_3 = make_code_chunk_response(repo_id="different_repo_id", file_name="xyz", content="print('different_repo_id')", embedding=generate_random_vector())
+
+        fake.set_fake_data([chk_1, chk_2, chk_3])
+
+        result = await fake.similarity_search(
+            embedding=embedding_vector,
+            user_id=chk_1.user_id,
+            repo_id=chk_1.repo_id,
+            limit= 5
+        )
+
+        assert fake.calculate_score(chk_2.embedding, embedding_vector) == result[0]["score"]
+        assert fake.calculate_score(chk_1.embedding, embedding_vector) == result[1]["score"]
+
+    @pytest.mark.parametrize(
+        "input_kwarg",
+        [
+            {"embedding":generate_random_vector(), "user_id":"valid_user_id", "repo_id":"valid_repo_id", "limit": -1 },
+            {"embedding":generate_random_vector(), "user_id":"valid_user_id", "repo_id":None, "limit": 5 },
+            {"embedding":generate_random_vector(), "user_id": None, "repo_id":"valid_repo_id", "limit": 5 },
+            {"embedding":None, "user_id": "valid_user_id", "repo_id":"valid_repo_id", "limit": 5 },
+            {"embedding":generate_random_vector()[:10], "user_id": "valid_user_id", "repo_id":"valid_repo_id", "limit": 5 },
+         ],
+        ids=[
+            "invalid limit", "Null repo_id", "Null user_id","embedding not of valid length", "Null embedding"
+        ]
+    )
+    async def test_similarity_search_invalid_params(self, input_kwarg):
+        fake = FakeCodeChunksStore()
+
+        result = await fake.similarity_search(
+            **input_kwarg
+        )
+
+        assert result == []
+
+
 
 @pytest.mark.asyncio
 class TestStubCodeChunksStore:
