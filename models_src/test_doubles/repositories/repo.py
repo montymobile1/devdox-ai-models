@@ -103,21 +103,21 @@ class FakeRepoStore(FakeBase, IRepoStore):
 
         return match
 
-    async def update_status_by_repo_id(
-        self, repo_id: str, status: str, **kwargs: Any
+    async def update_status_by_id(
+        self, id: str, status: str, **kwargs: Any
     ) -> int:
         self._before(
-            self.update_status_by_repo_id, repo_id=repo_id, status=status, kwargs=kwargs
+            self.update_status_by_id, id=id, status=status, kwargs=kwargs
         )
 
         data = self.__get_data_store()
 
-        if (not repo_id or not repo_id.strip()) or (not status or not status.strip()):
+        if (not id or not id.strip()) or (not status or not status.strip()):
             return -1
 
         updated = 0
         for key, obj_list in data.items():
-            match = next((obj for obj in obj_list if obj.repo_id == repo_id), None)
+            match = next((obj for obj in obj_list if str(obj.id) == id), None)
             if match:
                 match.status = status
                 updated += 1
@@ -247,10 +247,10 @@ class StubRepoStore(StubPlanMixin, IRepoStore):
     async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
         return await self._stub(self.find_by_id, id=id)
 
-    async def update_status_by_repo_id(
-        self, repo_id: str, status: str, **kwargs: Any
+    async def update_status_by_id(
+        self, id: str, status: str, **kwargs: Any
     ) -> int:
-        return await self._stub(self.update_status_by_repo_id, repo_id=repo_id, status=status, kwargs=kwargs)
+        return await self._stub(self.update_status_by_id, id=id, status=status, kwargs=kwargs)
 
     async def find_by_user_id_and_html_url(
         self, user_id: str, html_url: str

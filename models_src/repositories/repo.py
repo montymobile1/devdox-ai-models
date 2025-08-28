@@ -43,8 +43,8 @@ class IRepoStore(Protocol):
     async def count_by_user_id(self, user_id: str) -> int: ...
 
     @abstractmethod
-    async def update_status_by_repo_id(
-        self, repo_id: str, status: str, **kwargs: Any
+    async def update_status_by_id(
+        self, id: str, status: str, **kwargs: Any
     ) -> int: ...
 
     @abstractmethod
@@ -135,13 +135,13 @@ class TortoiseRepoStore(IRepoStore):
         raw_data = await self.model.filter(user_id=user_id, html_url=html_url).first()
         return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
 
-    async def update_status_by_repo_id(
-        self, repo_id: str, status: str, **kwargs: Any
+    async def update_status_by_id(
+        self, id: str, status: str, **kwargs: Any
     ) -> int:
-        if (not repo_id or not repo_id.strip()) or (not status or not status.strip()):
+        if (not id or not id.strip()) or (not status or not status.strip()):
             return -1
 
-        repo = await self.model.filter(repo_id=repo_id).first()
+        repo = await self.model.filter(id=id).first()
 
         if not repo:
             return 0
