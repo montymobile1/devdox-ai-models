@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from dataclasses import asdict
 from typing import Any, List, Optional
@@ -102,12 +103,18 @@ class FakeRepoStore(FakeBase, IRepoStore):
                 break
 
         return match
-
-    async def update_status_by_id(
-        self, id: str, status: str, **kwargs: Any
+    
+    async def update_analysis_metadata_by_id(
+            self,
+            id: str,
+            status: str,
+            processing_end_time: datetime.datetime,
+            total_files: int,
+            total_chunks: int,
+            total_embeddings: int,
     ) -> int:
         self._before(
-            self.update_status_by_id, id=id, status=status, kwargs=kwargs
+            self.update_analysis_metadata_by_id, id=id, status=status, processing_end_time=processing_end_time, total_files=total_files, total_chunks=total_chunks, total_embeddings=total_embeddings
         )
 
         data = self.__get_data_store()
@@ -120,6 +127,10 @@ class FakeRepoStore(FakeBase, IRepoStore):
             match = next((obj for obj in obj_list if str(obj.id) == id), None)
             if match:
                 match.status = status
+                match.processing_end_time = processing_end_time
+                match.total_files = total_files
+                match.total_chunks = total_chunks
+                match.total_embeddings = total_embeddings
                 updated += 1
                 break
 
@@ -246,11 +257,24 @@ class StubRepoStore(StubPlanMixin, IRepoStore):
 
     async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
         return await self._stub(self.find_by_id, id=id)
-
-    async def update_status_by_id(
-        self, id: str, status: str, **kwargs: Any
+    
+    async def update_analysis_metadata_by_id(
+            self,
+            id: str,
+            status: str,
+            processing_end_time: datetime.datetime,
+            total_files: int,
+            total_chunks: int,
+            total_embeddings: int,
     ) -> int:
-        return await self._stub(self.update_status_by_id, id=id, status=status, kwargs=kwargs)
+        return await self._stub(self.update_analysis_metadata_by_id,
+                                id=id,
+                                status=status,
+                                processing_end_time=processing_end_time,
+                                total_files=total_files,
+                                total_chunks=total_chunks,
+                                total_embeddings=total_embeddings,
+                                )
 
     async def find_by_user_id_and_html_url(
         self, user_id: str, html_url: str

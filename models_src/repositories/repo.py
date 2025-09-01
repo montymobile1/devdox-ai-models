@@ -1,6 +1,7 @@
+import datetime
 from abc import abstractmethod
 from dataclasses import asdict
-from typing import Any, List, Optional, Protocol
+from typing import List, Optional, Protocol
 
 from tortoise.exceptions import DoesNotExist, IntegrityError
 
@@ -41,12 +42,18 @@ class IRepoStore(Protocol):
 
     @abstractmethod
     async def count_by_user_id(self, user_id: str) -> int: ...
-
+    
     @abstractmethod
-    async def update_status_by_id(
-        self, id: str, status: str, **kwargs: Any
+    async def update_analysis_metadata_by_id(
+            self,
+            id: str,
+            status: str,
+            processing_end_time: datetime.datetime,
+            total_files: int,
+            total_chunks: int,
+            total_embeddings: int,
     ) -> int: ...
-
+    
     @abstractmethod
     async def update_repo_system_reference_by_id(
         self, id: str, repo_system_reference: str
@@ -134,26 +141,28 @@ class TortoiseRepoStore(IRepoStore):
     ) -> Optional[RepoResponseDTO]:
         raw_data = await self.model.filter(user_id=user_id, html_url=html_url).first()
         return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
-
-    async def update_status_by_id(
-        self, id: str, status: str, **kwargs: Any
+    
+    async def update_analysis_metadata_by_id(
+            self,
+            id: str,
+            status: str,
+            processing_end_time: datetime.datetime,
+            total_files: int,
+            total_chunks: int,
+            total_embeddings: int,
     ) -> int:
         if (not id or not id.strip()) or (not status or not status.strip()):
             return -1
-
-        repo = await self.model.filter(id=id).first()
-
-        if not repo:
-            return 0
-
-        repo.status = status
-        for key, value in kwargs.items():
-            if hasattr(repo, key):
-                setattr(repo, key, value)
-
-        await repo.save()
-
-        return 1
+        
+        updated_count = await self.model.filter(id=id).update(
+            status=status,
+            processing_end_time=processing_end_time,
+            total_files=total_files,
+            total_chunks=total_chunks,
+            total_embeddings=total_embeddings,
+        )
+        
+        return updated_count
 
     async def update_repo_system_reference_by_id(
         self, id: str, repo_system_reference: str
@@ -169,7 +178,7 @@ class TortoiseRepoStore(IRepoStore):
         return await self.model.filter(id=id).update(
             repo_system_reference=repo_system_reference
         )
-    
+
     async def find_by_user_and_path(
         self, user_id: str, relative_path: str
     ) -> RepoResponseDTO:
