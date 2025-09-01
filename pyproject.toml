@@ -52,7 +52,7 @@ postgresql = [
 ]
 
 all = [
-    "tortoise-models[mysql,postgresql,sqlite]",
+    "tortoise-orm[mysql,postgresql,sqlite]",
 ]
 
 [project.urls]
