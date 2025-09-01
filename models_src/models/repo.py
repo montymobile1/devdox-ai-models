@@ -72,6 +72,7 @@ class Repo(Model):
     )
     total_files = fields.IntField(default=0, description="Total files processed")
     total_chunks = fields.IntField(default=0, description="Total code chunks created")
+    total_embeddings = fields.IntField(default=0, description="Total embeddings created")
     processing_start_time = fields.DatetimeField(null=True)
     processing_end_time = fields.DatetimeField(null=True)
     error_message = fields.TextField(
@@ -94,7 +95,7 @@ class Repo(Model):
         null=True,
         description="An optional System generated (no user intervention required) description or note for this repository. Explaining its purpose, provide internal context, or document team-specific information.",
     )
-
+    
     class Meta:
         table = "repo"
         table_description = "Repository information from Git providers"
