@@ -18,7 +18,10 @@ class ICodeChunksStore(Protocol):
     async def save(
         self, create_model: CodeChunksRequestDTO
     ) -> CodeChunksResponseDTO: ...
-
+    
+    @abstractmethod
+    async def bulk_save(self, create_model: list[CodeChunksRequestDTO]) -> List[CodeChunksResponseDTO]: ...
+    
     @abstractmethod
     async def find_all_by_repo_id_with_limit(
         self, repo_id: str, limit: int = 100
@@ -61,6 +64,16 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
     async def save(self, create_model: CodeChunksRequestDTO) -> CodeChunksResponseDTO:
         data = await self.model.create(**asdict(create_model))
         return self.model_mapper.map_model_to_dataclass(data, CodeChunksResponseDTO)
+
+    async def bulk_save(self, create_model: list[CodeChunksRequestDTO]) -> List[CodeChunksResponseDTO]:
+        objs = [
+            self.model(**asdict(r))
+            for r in create_model
+        ]
+
+        _ = await self.model.bulk_create(objs, batch_size=1000)
+
+        return self.model_mapper.map_models_to_dataclasses_list(objs, CodeChunksResponseDTO)
 
     async def find_all_by_repo_id_with_limit(
         self, repo_id: str, limit: int = 100
