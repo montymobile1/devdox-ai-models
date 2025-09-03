@@ -10,9 +10,26 @@ import pytest
 
 from models_src.dto.code_chunks import CodeChunksRequestDTO, CodeChunksResponseDTO
 from models_src.test_doubles.repositories.code_chunks import (
+    EMBED_DIM,
     FakeCodeChunksStore,
-    StubCodeChunksStore, ZERO_NORM_TOLERANCE,
+    StubCodeChunksStore,
+    ZERO_NORM_TOLERANCE,
 )
+
+
+def k_hot_vectors(indices: list[int], dim: int = EMBED_DIM, normalize: bool = True) -> list[float]:
+    if not indices:
+        raise ValueError("indices must not be empty")
+    v = [0.0] * dim
+    for i in indices:
+        if not (0 <= i < dim):
+            raise ValueError(f"index {i} out of range 0..{dim-1}")
+        v[i] = 1.0
+    if normalize:
+        inv = 1.0 / math.sqrt(len(indices))  # unit length
+        v = [x * inv for x in v]
+    return v
+
 
 def generate_random_vector() -> List[float]:
     while True:
@@ -33,7 +50,7 @@ def make_code_chunk_response(**kwargs) -> CodeChunksResponseDTO:
         file_path=kwargs.get("file_path", "/main.py"),
         file_size=kwargs.get("file_size", 123),
         commit_number=kwargs.get("commit_number", "abc123"),
-        embedding=kwargs.get("embedding") if kwargs.get("embedding") else generate_random_vector(),
+        embedding=kwargs.get("embedding") if kwargs.get("embedding") else k_hot_vectors([0]),
         metadata=kwargs.get("metadata", {}),
         created_at=kwargs.get("created_at", now)
     )
@@ -109,44 +126,64 @@ class TestFakeCodeChunksStore:
     async def test_similarity_search_success(self):
         fake = FakeCodeChunksStore()
 
-        embedding_vector = generate_random_vector()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
-        chk_1 = make_code_chunk_response(
-            file_name="xyz_12345",
-            content="print('xyz_12345')",
-            embedding=generate_random_vector(),
-            created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2)
-        )
+        # Deterministic query
+        query = k_hot_vectors([0, 4])  # ||q|| = 1
 
+        # Deterministic stored rows
+        # chk_2 overlaps with query on 0 & 4 => sim = 2 / sqrt(2*3) = sqrt(2/3)
         chk_2 = make_code_chunk_response(
             file_name="12345_xyz",
             content="print('12345_xyz')",
-            embedding=generate_random_vector(),
-            created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
+            embedding=k_hot_vectors([0, 4, 7]),
+            created_at=now - datetime.timedelta(days=1),
         )
-
-        chk_3 = make_code_chunk_response(repo_id="different_repo_id", file_name="xyz", content="print('different_repo_id')", embedding=generate_random_vector())
+        # chk_1 is orthogonal => sim = 0.0
+        chk_1 = make_code_chunk_response(
+            file_name="xyz_12345",
+            content="print('xyz_12345')",
+            embedding=k_hot_vectors([1, 2, 3]),
+            created_at=now - datetime.timedelta(days=2),
+        )
+        # Different repo_id => excluded by filter
+        chk_3 = make_code_chunk_response(
+            repo_id="different_repo_id",
+            file_name="xyz",
+            content="print('different_repo_id')",
+            embedding=k_hot_vectors([5, 6]),
+            created_at=now,
+        )
 
         fake.set_fake_data([chk_1, chk_2, chk_3])
 
         result = await fake.similarity_search(
-            embedding=embedding_vector,
+            embedding=query,
             user_id=chk_1.user_id,
             repo_id=chk_1.repo_id,
-            limit= 5
+            limit=5,
         )
 
-        assert round(fake.calculate_score(chk_2.embedding, embedding_vector), 1) == round(result[0]["score"], 1)
-        assert round(fake.calculate_score(chk_1.embedding, embedding_vector), 1) == round(result[1]["score"], 1)
+        # Stable order & exact scores
+        assert [r["file_name"] for r in result[:2]] == [
+            chk_2.file_name,
+            chk_1.file_name,
+        ]
+
+        expected_top = math.sqrt(2 / 3)
+        assert math.isclose(
+            result[0]["score"], expected_top, rel_tol=0.0, abs_tol=ZERO_NORM_TOLERANCE
+        )
+        assert math.isclose(result[1]["score"], 0.0, rel_tol=0.0, abs_tol=ZERO_NORM_TOLERANCE)
 
     @pytest.mark.parametrize(
         "input_kwarg",
         [
-            {"embedding":generate_random_vector(), "user_id":"valid_user_id", "repo_id":"valid_repo_id", "limit": -1 },
-            {"embedding":generate_random_vector(), "user_id":"valid_user_id", "repo_id":None, "limit": 5 },
-            {"embedding":generate_random_vector(), "user_id": None, "repo_id":"valid_repo_id", "limit": 5 },
+            {"embedding":k_hot_vectors([0, 5])  , "user_id":"valid_user_id", "repo_id":"valid_repo_id", "limit": -1 },
+            {"embedding":k_hot_vectors([0, 5])  , "user_id":"valid_user_id", "repo_id":None, "limit": 5 },
+            {"embedding":k_hot_vectors([0, 5])  , "user_id": None, "repo_id":"valid_repo_id", "limit": 5 },
             {"embedding":None, "user_id": "valid_user_id", "repo_id":"valid_repo_id", "limit": 5 },
-            {"embedding":generate_random_vector()[:10], "user_id": "valid_user_id", "repo_id":"valid_repo_id", "limit": 5 },
+            {"embedding":k_hot_vectors([0], dim=10) , "user_id": "valid_user_id", "repo_id":"valid_repo_id", "limit": 5 },
          ],
         ids=[
             "invalid limit", "Null repo_id", "Null user_id","embedding not of valid length", "Null embedding"
@@ -247,6 +284,6 @@ class TestStubCodeChunksStore:
 
         await get_repo_file_chunks(user_id=generated_response.user_id, repo_id=generated_response.repo_id, file_name=generated_response.file_name)
 
-        await get_user_repo_chunks(user_id=generated_response.user_id, repo_id=generated_response.repo_id, query_embedding=generate_random_vector(), limit= 5)
+        await get_user_repo_chunks(user_id=generated_response.user_id, repo_id=generated_response.repo_id, query_embedding=k_hot_vectors([2, 3]), limit= 5)
 
         assert expected_result == stub._outputs
