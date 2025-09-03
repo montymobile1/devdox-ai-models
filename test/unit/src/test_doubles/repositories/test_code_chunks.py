@@ -161,6 +161,36 @@ class TestFakeCodeChunksStore:
 
         assert result == []
 
+    async def test_bulk_save_inserts_data(self):
+
+        fake = FakeCodeChunksStore()
+
+        dto_list = []
+
+        for i in range(0,2):
+            dto_list.append(
+                CodeChunksRequestDTO(
+                    user_id="u1",
+                    repo_id=f"r{i}",
+                    content=f"print('hi from r{i}')",
+                    file_name=f"main{i}.py",
+                    file_path=f"/main{i}.py",
+                    file_size=i*10,
+                    commit_number="commit1",
+                )
+            )
+
+        result_list = await fake.bulk_save(create_model=dto_list)
+
+        assert fake.total_count == len(dto_list)
+        assert len(result_list) == len(dto_list)
+
+        for index, res in enumerate(result_list):
+            assert res in fake.data_store
+            assert res.id is not None
+            assert res.created_at is not None
+            assert res.repo_id == dto_list[index].repo_id
+
 
 @pytest.mark.asyncio
 class TestStubCodeChunksStore:
@@ -168,6 +198,7 @@ class TestStubCodeChunksStore:
         stub = StubCodeChunksStore()
 
         save = stub.save
+        bulk_save = stub.bulk_save
         find_all_by_repo_id_with_limit = stub.find_all_by_repo_id_with_limit
         get_repo_file_chunks = stub.get_repo_file_chunks
         get_user_repo_chunks = stub.get_user_repo_chunks
@@ -176,12 +207,14 @@ class TestStubCodeChunksStore:
 
         expected_result = {
             save.__name__: generated_response,
+            bulk_save.__name__: [generated_response],
             find_all_by_repo_id_with_limit.__name__: [generated_response,generated_response],
             get_repo_file_chunks.__name__: [{"content": generated_response.content}, {"content": generated_response.content}],
             get_user_repo_chunks.__name__: [asdict(generated_response), asdict(generated_response)],
         }
 
         stub.set_output(save, expected_result.get(save.__name__) )
+        stub.set_output(bulk_save, expected_result.get(bulk_save.__name__) )
         stub.set_output(find_all_by_repo_id_with_limit, expected_result.get(find_all_by_repo_id_with_limit.__name__) )
         stub.set_output(get_repo_file_chunks, expected_result.get(get_repo_file_chunks.__name__) )
         stub.set_output(get_user_repo_chunks, expected_result.get(get_user_repo_chunks.__name__) )
@@ -195,11 +228,25 @@ class TestStubCodeChunksStore:
             file_size=100,
             commit_number="commit1",
         ))
-        
+
+        await bulk_save(
+            create_model=[
+                CodeChunksRequestDTO(
+                    user_id="u1",
+                    repo_id="r1",
+                    content="print('hi')",
+                    file_name="main.py",
+                    file_path="/main.py",
+                    file_size=100,
+                    commit_number="commit1",
+                )
+            ]
+        )
+
         await find_all_by_repo_id_with_limit(repo_id=generated_response.repo_id, limit= 100)
-        
+
         await get_repo_file_chunks(user_id=generated_response.user_id, repo_id=generated_response.repo_id, file_name=generated_response.file_name)
-        
+
         await get_user_repo_chunks(user_id=generated_response.user_id, repo_id=generated_response.repo_id, query_embedding=generate_random_vector(), limit= 5)
 
         assert expected_result == stub._outputs
