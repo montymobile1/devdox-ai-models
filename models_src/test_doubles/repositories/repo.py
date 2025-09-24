@@ -205,8 +205,25 @@ class FakeRepoStore(FakeBase, IRepoStore):
                 break
         
         return result
-        
 
+    async def find_by_user_and_alias_name(
+            self, user_id: str, repo_alias_name: str
+    ) -> RepoResponseDTO:
+        self._before(
+            self.find_by_user_and_alias_name,
+            user_id=user_id,
+            repo_alias_name=repo_alias_name,
+        )
+
+        all_data = self.__get_data_store(user_id=user_id)
+
+        result = None
+        for data in all_data:
+            if hasattr(data, 'repo_alias_name') and data.repo_alias_name == repo_alias_name:
+                result = data
+                break
+
+        return result
 
 class StubRepoStore(StubPlanMixin, IRepoStore):
 
@@ -261,4 +278,13 @@ class StubRepoStore(StubPlanMixin, IRepoStore):
             self.find_by_user_and_path,
             user_id=user_id,
             relative_path=relative_path
+        )
+
+    async def find_by_user_and_alias_name(
+            self, user_id: str, repo_alias_name: str
+    ) -> RepoResponseDTO:
+        return await self._stub(
+            self.find_by_user_and_alias_name,
+            user_id=user_id,
+            repo_alias_name=repo_alias_name
         )
