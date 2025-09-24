@@ -273,3 +273,35 @@ class TestStubRepoStoreStore:
 
         # ASSERT
         assert expected_result == stub._outputs
+
+
+
+    async def test_find_by_user_and_alias_name(self):
+        store = FakeRepoStore()
+        a = make_repo_response(user_id="u1", repo_alias_name="alias1")
+        b = make_repo_response(user_id="u1", repo_alias_name="alias2")
+        c = make_repo_response(user_id="u2", repo_alias_name="alias1")  # Different user
+
+        store.set_fake_data([a, b, c])
+
+        # Test found case
+        result = await store.find_by_user_and_alias_name("u1", "alias1")
+        assert result == a
+
+        # Test not found case
+        result = await store.find_by_user_and_alias_name("u1", "nonexistent")
+        assert result is None
+
+        # Test different user
+        result = await store.find_by_user_and_alias_name("u2", "alias1")
+        assert result == c
+
+    async def test_find_by_user_and_alias_name_stub(self):
+        stub = StubRepoStore()
+        expected_response = make_repo_response()
+
+        stub.set_output(stub.find_by_user_and_alias_name, expected_response)
+
+        result = await stub.find_by_user_and_alias_name("u1", "alias1")
+        assert result == expected_response
+
