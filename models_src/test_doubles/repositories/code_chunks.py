@@ -43,6 +43,22 @@ class FakeCodeChunksStore(FakeBase, ICodeChunksStore):
 
         return response
 
+    async def bulk_save(self, create_model: list[CodeChunksRequestDTO]) -> List[CodeChunksResponseDTO]:
+        self._before(self.bulk_save, create_model=create_model)
+
+        response = []
+        for model in create_model:
+            v = CodeChunksResponseDTO(**asdict(model))
+            v.id = uuid4()
+            v.created_at = datetime.datetime.now(datetime.timezone.utc)
+
+            response.append(v)
+
+        self.data_store.extend(response)
+        self.total_count = len(self.data_store)
+
+        return response
+
     async def find_all_by_repo_id_with_limit(
         self, repo_id: str, limit: int = 100
     ) -> List[CodeChunksResponseDTO]:
@@ -83,24 +99,16 @@ class FakeCodeChunksStore(FakeBase, ICodeChunksStore):
         """
         Attempts to mimic the postgresql cosine distance calculation the "<=>" part
         """
-        
 
         if not vec1 or not vec2 or len(vec1) != len(vec2):
-            return 1.0
-        # norms
+            return float("-inf")  # push invalid rows to the bottom
         n1 = math.sqrt(sum(x * x for x in vec1))
         n2 = math.sqrt(sum(y * y for y in vec2))
-        
         if n1 < ZERO_NORM_TOLERANCE or n2 < ZERO_NORM_TOLERANCE:
-            return 1.0
-        
+            return float("-inf")
         sim = sum(a * b for a, b in zip(vec1, vec2)) / (n1 * n2)
-
-        distance = 1 - sim
-
-        score = 1 - distance  # same as SQL: 1 - (embedding <=> $1)
-
-        return score
+        sim = max(-1.0, min(1.0, sim))  # clamp for numerical safety
+        return sim  # score == cosine similarity
 
     async def get_user_repo_chunks(
         self,
@@ -147,10 +155,16 @@ class FakeCodeChunksStore(FakeBase, ICodeChunksStore):
             results.append(out)
 
         # ORDER BY score DESC, created_at DESC
+
+        default_dt = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
         results.sort(
-            key=lambda r: (r.get("score", float("-inf")), r.get("created_at", datetime.datetime.min)),
+            key=lambda r: (
+                r.get("score", float("-inf")),
+                r.get("created_at", default_dt),
+            ),
             reverse=True,
         )
+
         return results[: max(1, int(limit))]
 
 
@@ -174,7 +188,7 @@ class StubCodeChunksStore(StubPlanMixin, ICodeChunksStore):
         return await self._stub(
             self.get_repo_file_chunks, user_id=user_id, repo_id=repo_id, file_name=file_name
         )
-    
+
     async def get_user_repo_chunks(
         self,
         user_id: str | uuid.UUID,
@@ -195,4 +209,12 @@ class StubCodeChunksStore(StubPlanMixin, ICodeChunksStore):
     ) -> List[Dict[str, Any]]:
         return await self._stub(
             self.similarity_search, embedding=embedding, user_id=user_id, repo_id=repo_id, limit=limit
+        )
+
+    async def bulk_save(
+        self, create_model: list[CodeChunksRequestDTO]
+    ) -> List[CodeChunksResponseDTO]:
+        return await self._stub(
+            self.bulk_save,
+            create_model=create_model
         )
