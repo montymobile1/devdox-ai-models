@@ -134,7 +134,7 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
             )
             SELECT *
             FROM ranked
-            ORDER BY score DESC, c.created_at DESC
+            ORDER BY score DESC, created_at DESC
             LIMIT $4;
         """
         try:
