@@ -129,20 +129,28 @@ class TestFakeRepoStore:
         found = await store.find_by_user_id_and_html_url("u1", "https://h/repo2")
         assert found is b
 
-    async def test_update_status_by_repo_id_updates_and_returns_codes(self):
+    async def test_update_analysis_metadata_by_id_and_returns_codes(self):
         store = FakeRepoStore()
-        a = make_repo_response(user_id="u1", repo_id="rid-1", status="pending")
+        
+        a = make_repo_response(id=uuid.uuid4(), user_id="u1", repo_id="rid-1", status="pending")
         store.set_fake_data([a])
-
+        
+        analysis_metadata = {
+            "processing_end_time": datetime.datetime.now(datetime.UTC),
+            "total_files": 1,
+            "total_chunks": 1,
+            "total_embeddings": 1
+        }
+        
         # invalid inputs
-        assert (await store.update_status_by_repo_id("", "s")) == -1
-        assert (await store.update_status_by_repo_id("rid-1", "")) == -1
+        assert (await store.update_analysis_metadata_by_id("", "s", **analysis_metadata)) == -1
+        assert (await store.update_analysis_metadata_by_id(str(a.id), "", **analysis_metadata)) == -1
 
         # not found
-        assert (await store.update_status_by_repo_id("missing", "done")) == 0
+        assert (await store.update_analysis_metadata_by_id("missing", "done", **analysis_metadata)) == 0
 
         # success
-        updated = await store.update_status_by_repo_id("rid-1", "completed")
+        updated = await store.update_analysis_metadata_by_id(str(a.id), "completed", **analysis_metadata)
         assert updated == 1
         assert a.status == "completed"
 
@@ -195,7 +203,7 @@ class TestStubRepoStoreStore:
         get_by_id = stub.get_by_id
         find_by_repo_id = stub.find_by_repo_id
         find_by_id = stub.find_by_id
-        update_status_by_repo_id = stub.update_status_by_repo_id
+        update_analysis_metadata_by_id = stub.update_analysis_metadata_by_id
         find_by_user_id_and_html_url = stub.find_by_user_id_and_html_url
         save_context = stub.save_context
         update_repo_system_reference_by_id = stub.update_repo_system_reference_by_id
@@ -209,7 +217,7 @@ class TestStubRepoStoreStore:
             get_by_id.__name__: generated_response,
             find_by_repo_id.__name__: generated_response,
             find_by_id.__name__: generated_response,
-            update_status_by_repo_id.__name__: 1,
+            update_analysis_metadata_by_id.__name__: 1,
             find_by_user_id_and_html_url.__name__: generated_response,
             save_context.__name__: generated_response,
             update_repo_system_reference_by_id.__name__: 1,
@@ -221,7 +229,7 @@ class TestStubRepoStoreStore:
         stub.set_output(get_by_id, expected_result.get(get_by_id.__name__))
         stub.set_output(find_by_repo_id, expected_result.get(find_by_repo_id.__name__))
         stub.set_output(find_by_id, expected_result.get(find_by_id.__name__))
-        stub.set_output(update_status_by_repo_id, expected_result.get(update_status_by_repo_id.__name__))
+        stub.set_output(update_analysis_metadata_by_id, expected_result.get(update_analysis_metadata_by_id.__name__))
         stub.set_output(find_by_user_id_and_html_url, expected_result.get(find_by_user_id_and_html_url.__name__))
         stub.set_output(save_context, expected_result.get(save_context.__name__))
         stub.set_output(update_repo_system_reference_by_id, expected_result.get(update_repo_system_reference_by_id.__name__))
@@ -261,10 +269,17 @@ class TestStubRepoStoreStore:
             )
         )
         
+        analysis_metadata = {
+            "processing_end_time": datetime.datetime.now(datetime.UTC),
+            "total_files": 1,
+            "total_chunks": 1,
+            "total_embeddings": 1
+        }
+        
         await get_by_id(repo_id=generated_response.repo_id)
         await find_by_repo_id(repo_id=generated_response.repo_id)
         await find_by_id(id=str(generated_response.id))
-        await update_status_by_repo_id(repo_id=generated_response.repo_id, status=generated_response.status)
+        await update_analysis_metadata_by_id(id=generated_response.repo_id, status=generated_response.status, **analysis_metadata)
         await find_by_user_id_and_html_url(user_id=generated_response.user_id, html_url=generated_response.html_url)
         await save_context(repo_id=generated_response.repo_id, user_id=generated_response.user_id, config={})
         await update_repo_system_reference_by_id(id=str(generated_response.id), repo_system_reference=generated_response.repo_system_reference)
@@ -273,3 +288,35 @@ class TestStubRepoStoreStore:
 
         # ASSERT
         assert expected_result == stub._outputs
+
+
+
+    async def test_find_by_user_and_alias_name(self):
+        store = FakeRepoStore()
+        a = make_repo_response(user_id="u1", repo_alias_name="alias1")
+        b = make_repo_response(user_id="u1", repo_alias_name="alias2")
+        c = make_repo_response(user_id="u2", repo_alias_name="alias1")  # Different user
+
+        store.set_fake_data([a, b, c])
+
+        # Test found case
+        result = await store.find_by_user_and_alias_name("u1", "alias1")
+        assert result == a
+
+        # Test not found case
+        result = await store.find_by_user_and_alias_name("u1", "nonexistent")
+        assert result is None
+
+        # Test different user
+        result = await store.find_by_user_and_alias_name("u2", "alias1")
+        assert result == c
+
+    async def test_find_by_user_and_alias_name_stub(self):
+        stub = StubRepoStore()
+        expected_response = make_repo_response()
+
+        stub.set_output(stub.find_by_user_and_alias_name, expected_response)
+
+        result = await stub.find_by_user_and_alias_name("u1", "alias1")
+        assert result == expected_response
+

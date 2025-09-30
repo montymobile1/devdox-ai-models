@@ -72,6 +72,7 @@ class Repo(Model):
     )
     total_files = fields.IntField(default=0, description="Total files processed")
     total_chunks = fields.IntField(default=0, description="Total code chunks created")
+    total_embeddings = fields.IntField(default=0, description="Total embeddings created")
     processing_start_time = fields.DatetimeField(null=True)
     processing_end_time = fields.DatetimeField(null=True)
     error_message = fields.TextField(
