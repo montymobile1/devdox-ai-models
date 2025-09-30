@@ -41,6 +41,8 @@ class RepoResponseDTO:
     repo_alias_name: Optional[str] = None
     repo_user_reference: Optional[str] = None
     repo_system_reference: Optional[str] = None
+    repo_author_name: Optional[str] = None
+    repo_author_email: Optional[str] = None
 
 
 @dataclass
