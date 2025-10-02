@@ -12,10 +12,6 @@ class QRegistryStat(str, Enum):
     FAILED = "failed"
     COMPLETED = "completed"
 
-
-queue_processing_registry_one_claim_unique = "queue_processing_registry_message_id_idx"
-
-
 class QueueProcessingRegistry(Model):
     id = fields.UUIDField(pk=True, default=uuid.uuid4)
 

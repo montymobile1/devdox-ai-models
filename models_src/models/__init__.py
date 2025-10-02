@@ -6,9 +6,7 @@ from .code_chunks import CodeChunks
 from .queue_job_claim_registry import (
     QueueProcessingRegistry,
     QRegistryStat,
-    queue_processing_registry_one_claim_unique,
 )
-from .custom_indexes import CUSTOM_INDEXES
 
 __all__ = [
     "GitLabel",
@@ -18,6 +16,4 @@ __all__ = [
     "CodeChunks",
     "QueueProcessingRegistry",
     "QRegistryStat",
-    "queue_processing_registry_one_claim_unique",
-    "CUSTOM_INDEXES",
 ]

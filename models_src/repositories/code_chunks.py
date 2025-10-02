@@ -1,15 +1,13 @@
-import datetime
 import logging
 import uuid
 from abc import abstractmethod
 from dataclasses import asdict
-from typing import Any, Dict, List, Optional, Protocol
-
-from tortoise import connections
+from typing import Any, Dict, List, Protocol
 
 from models_src.dto.code_chunks import CodeChunksRequestDTO, CodeChunksResponseDTO
 from models_src.dto.utils import TortoiseModelMapper
 from models_src.models import CodeChunks
+from models_src.models.db import PgVectorConnection
 
 
 class ICodeChunksStore(Protocol):
@@ -134,13 +132,14 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
             )
             SELECT *
             FROM ranked
-            ORDER BY score DESC, c.created_at DESC
+            ORDER BY score DESC, created_at DESC
             LIMIT $4;
         """
         try:
-            conn = connections.get("default")
-            params = [embedding, str(user_id), str(repo_id), int(limit)]
-            return await conn.execute_query_dict(sql, params)
+            async with PgVectorConnection("default") as conn:
+                params = (embedding, str(user_id), str(repo_id), int(limit))
+                rows = await conn.fetch(sql, *params)
+                return [dict(r) for r in rows]
         except Exception as e:
             logging.error(f"Similarity search failed: {e}")
             return []
