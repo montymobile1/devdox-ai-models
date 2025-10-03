@@ -12,6 +12,10 @@ class QRegistryStat(str, Enum):
     FAILED = "failed"
     COMPLETED = "completed"
 
+# THis is the name of the most important part of the database, basically its a partial relation that
+# is responsible for preventing two workers from acquiring the same job.
+queue_processing_registry_one_claim_unique = "queue_processing_registry_message_id_idx" 
+
 class QueueProcessingRegistry(Model):
     id = fields.UUIDField(pk=True, default=uuid.uuid4)
 
