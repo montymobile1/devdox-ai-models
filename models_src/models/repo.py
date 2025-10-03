@@ -95,7 +95,17 @@ class Repo(Model):
         null=True,
         description="An optional System generated (no user intervention required) description or note for this repository. Explaining its purpose, provide internal context, or document team-specific information.",
     )
-    
+    repo_author_name = fields.CharField(
+        null=True,
+        max_length=255,
+        description="The name of the user who owns this repository",
+    )
+    repo_author_email = fields.CharField(
+        null=True,
+        max_length=255,
+        description="The email address of the user who owns this repository",
+    )
+
     class Meta:
         table = "repo"
         table_description = "Repository information from Git providers"
