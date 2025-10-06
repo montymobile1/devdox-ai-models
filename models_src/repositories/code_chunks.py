@@ -89,7 +89,79 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
         except Exception:
             logging.exception(f"{self.get_repo_file_chunks.__name__} failed")
             return []  # Return empty list on error
+    
+    async def get_user_repo_chunks_multi(
+        self,
+        *,
+        user_id: str | uuid.UUID,
+        repo_id: str | uuid.UUID,
+        query_embeddings: List[List[float]],
+        emb_dim: int,
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """
+        Multi-query:
+        - Accepts multiple query vectors.
+        - Computes similarity per (chunk, query).
+        - Fuses per-chunk via SUM(sim) as fusion_score.
+        - Orders by fusion_score, then max_sim, then created_at.
+        """
+        if not repo_id or not user_id or limit <= 0 or not query_embeddings:
+            return []
 
+        # Guard: consistent dimensions
+        if any(len(v) != emb_dim for v in query_embeddings):
+            logging.error("Embeddings have inconsistent dimensions.")
+            return []
+
+        # Build VALUES placeholders for each query vector: ($1::vector(dim)), ($2::vector(dim)), ...
+        n = len(query_embeddings)
+        values_sql = ", ".join(f"(${i+1}::vector({emb_dim}))" for i in range(n))
+
+        # Next placeholders for user_id, repo_id, limit:
+        p_user   = n + 1
+        p_repo   = n + 2
+        p_limit  = n + 3
+
+        sql = f"""
+            WITH queries(qvec) AS (
+                VALUES {values_sql}
+            ),
+            scored AS (
+                SELECT
+                    c.id,
+                    c.file_name,
+                    c.file_path,
+                    c.content,
+                    c.created_at,
+                    1 - (c.embedding <=> q.qvec) AS sim
+                FROM public.code_chunks c
+                CROSS JOIN queries q
+                WHERE c.user_id = ${p_user}
+                  AND c.repo_id = ${p_repo}
+            )
+            SELECT
+                id,
+                file_name,
+                file_path,
+                content,
+                MAX(created_at) AS created_at,
+                SUM(sim)        AS fusion_score,
+                MAX(sim)        AS max_sim
+            FROM scored
+            GROUP BY id, file_name, file_path, content
+            ORDER BY fusion_score DESC, max_sim DESC, created_at DESC
+            LIMIT ${p_limit};
+        """
+        try:
+            async with PgVectorConnection("default") as conn:
+                params = [*query_embeddings, str(user_id), str(repo_id), int(limit)]
+                rows = await conn.fetch(sql, *params)
+                return [dict(r) for r in rows]
+        except Exception:
+            logging.exception("Multi-query similarity search failed")
+            return []
+    
     async def get_user_repo_chunks(
         self,
         user_id: str | uuid.UUID,
