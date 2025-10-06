@@ -109,63 +109,62 @@ class FakeCodeChunksStore(FakeBase, ICodeChunksStore):
         sim = sum(a * b for a, b in zip(vec1, vec2)) / (n1 * n2)
         sim = max(-1.0, min(1.0, sim))  # clamp for numerical safety
         return sim  # score == cosine similarity
-
-    async def get_user_repo_chunks(
-        self,
-        user_id: str | uuid.UUID,
-        repo_id: str | uuid.UUID,
-        query_embedding: List[float],
-        limit: int = 5,
-    ) -> List[Dict[str, Any]]:
-        self._before(self.get_user_repo_chunks, user_id=user_id, repo_id=repo_id, query_embedding=query_embedding, limit=limit)
-
-        return await self.similarity_search(
-            embedding=query_embedding, user_id=user_id, repo_id=repo_id, limit=limit
-        )
-
-    async def similarity_search(
-        self,
-        embedding: List[float],
-        user_id: str | uuid.UUID,
-        repo_id: str | uuid.UUID,
-        limit: int = 5,
+    
+    async def get_user_repo_chunks_multi(
+            self,
+            user_id: str | uuid.UUID,
+            repo_id: str | uuid.UUID,
+            query_embeddings: List[List[float]],
+            emb_dim: int,
+            limit: int = 10,
     ) -> List[Dict[str, Any]]:
         self._before(
-            self.similarity_search,
-            embedding=embedding,
-            user_id=user_id,
-            repo_id=repo_id,
-            limit=limit,
+            self.get_user_repo_chunks_multi,
+            user_id=user_id, repo_id=repo_id,
+            query_embeddings=query_embeddings, emb_dim=emb_dim, limit=limit
         )
-
-        if not repo_id or not user_id or limit <= 0:
+        
+        if not repo_id or not user_id or limit <= 0 or not query_embeddings:
             return []
-        if not embedding or len(embedding) != EMBED_DIM:
+        if any(len(v) != emb_dim for v in query_embeddings):
             return []
-
-        results: List[Dict[str, Any]] = []
+        if emb_dim != EMBED_DIM:  # keep fake strict to catch mismatches in tests
+            return []
+        
+        out: List[Dict[str, Any]] = []
         for row in self.__get_data_store():
             if str(row.user_id) != str(user_id) or str(row.repo_id) != str(repo_id):
                 continue
-            # row.embedding should be List[float] (length EMBED_DIM) or None
-            score = self.calculate_score(getattr(row, "embedding", None), embedding)
-            row_dict = asdict(row)
-            out = dict(row_dict)
-            out["score"] = score
-            results.append(out)
-
-        # ORDER BY score DESC, created_at DESC
-
+            
+            sims = [self.calculate_score(getattr(row, "embedding", None), qv) for qv in query_embeddings]
+            valid_sims = [s for s in sims if s != float("-inf")]
+            if valid_sims:
+                fusion_score = sum(valid_sims)
+                max_sim = max(valid_sims)
+            else:
+                fusion_score = float("-inf")
+                max_sim = float("-inf")
+            
+            out.append({
+                "id": row.id,
+                "file_name": row.file_name,
+                "file_path": row.file_path,
+                "content": row.content,
+                "created_at": row.created_at,
+                "fusion_score": fusion_score,
+                "max_sim": max_sim,
+            })
+        
         default_dt = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
-        results.sort(
+        out.sort(
             key=lambda r: (
-                r.get("score", float("-inf")),
+                r.get("fusion_score", float("-inf")),
+                r.get("max_sim", float("-inf")),
                 r.get("created_at", default_dt),
             ),
             reverse=True,
         )
-
-        return results[: max(1, int(limit))]
+        return out[: max(1, int(limit))]
 
 
 class StubCodeChunksStore(StubPlanMixin, ICodeChunksStore):
@@ -188,27 +187,18 @@ class StubCodeChunksStore(StubPlanMixin, ICodeChunksStore):
         return await self._stub(
             self.get_repo_file_chunks, user_id=user_id, repo_id=repo_id, file_name=file_name
         )
-
-    async def get_user_repo_chunks(
-        self,
-        user_id: str | uuid.UUID,
-        repo_id: str | uuid.UUID,
-        query_embedding: List[float],
-        limit: int = 5,
+    
+    async def get_user_repo_chunks_multi(
+            self,
+            user_id: str | uuid.UUID,
+            repo_id: str | uuid.UUID,
+            query_embeddings: List[List[float]],
+            emb_dim: int,
+            limit: int = 10,
     ) -> List[Dict[str, Any]]:
         return await self._stub(
-            self.get_user_repo_chunks, user_id=user_id, repo_id=repo_id, query_embedding=query_embedding, limit=limit
-        )
-
-    async def similarity_search(
-        self,
-        embedding: List[float],
-        user_id: str | uuid.UUID,
-        repo_id: str | uuid.UUID,
-        limit: int = 5,
-    ) -> List[Dict[str, Any]]:
-        return await self._stub(
-            self.similarity_search, embedding=embedding, user_id=user_id, repo_id=repo_id, limit=limit
+            self.get_user_repo_chunks_multi,
+            user_id=user_id, repo_id=repo_id, query_embeddings=query_embeddings, emb_dim=emb_dim, limit=limit
         )
 
     async def bulk_save(
