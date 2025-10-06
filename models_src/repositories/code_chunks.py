@@ -28,6 +28,16 @@ class ICodeChunksStore(Protocol):
     @abstractmethod
     async def get_repo_file_chunks(self,  user_id : str | uuid.UUID , repo_id: str | uuid.UUID,  file_name:str="readme") -> List[dict]: ...
     
+    @abstractmethod
+    async def get_user_repo_chunks_multi(
+            self,
+            user_id: str | uuid.UUID,
+            repo_id: str | uuid.UUID,
+            query_embeddings: List[List[float]],
+            emb_dim: int,
+            limit: int = 10,
+    ) -> List[Dict[str, Any]]: ...
+    
     async def similarity_search(
             self,
             embedding: List[float],
@@ -92,7 +102,6 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
     
     async def get_user_repo_chunks_multi(
         self,
-        *,
         user_id: str | uuid.UUID,
         repo_id: str | uuid.UUID,
         query_embeddings: List[List[float]],
@@ -125,32 +134,43 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
 
         sql = f"""
             WITH queries(qvec) AS (
-                VALUES {values_sql}
+              VALUES {values_sql}
             ),
             scored AS (
-                SELECT
-                    c.id,
-                    c.file_name,
-                    c.file_path,
-                    c.content,
-                    c.created_at,
-                    1 - (c.embedding <=> q.qvec) AS sim
-                FROM public.code_chunks c
-                CROSS JOIN queries q
-                WHERE c.user_id = ${p_user}
-                  AND c.repo_id = ${p_repo}
-            )
-            SELECT
+              SELECT
+                c.id,
+                c.created_at,
+                1 - (c.embedding <=> q.qvec) AS sim
+              FROM public.code_chunks AS c
+              CROSS JOIN queries AS q
+              WHERE c.user_id = ${p_user}
+                AND c.repo_id = ${p_repo}
+                -- OPTIONAL, ENABLE IF YOU WANT TO REMOVE THE LOW RANKED ONES
+                -- AND (1 - (c.embedding <=> q.qvec)) >= 0.20
+            ),
+            agg AS (
+              SELECT
                 id,
-                file_name,
-                file_path,
-                content,
                 MAX(created_at) AS created_at,
                 SUM(sim)        AS fusion_score,
                 MAX(sim)        AS max_sim
-            FROM scored
-            GROUP BY id, file_name, file_path, content
-            ORDER BY fusion_score DESC, max_sim DESC, created_at DESC
+              FROM scored
+              GROUP BY id
+            )
+            SELECT
+              c.id,
+              c.file_name,
+              c.file_path,
+              c.content,
+              a.created_at,
+              a.fusion_score,
+              a.max_sim
+            FROM agg a
+            JOIN public.code_chunks c ON c.id = a.id
+              -- for defensive clarity:
+              AND c.user_id = ${p_user}
+              AND c.repo_id = ${p_repo}
+            ORDER BY a.fusion_score DESC, a.max_sim DESC, a.created_at DESC
             LIMIT ${p_limit};
         """
         try:
