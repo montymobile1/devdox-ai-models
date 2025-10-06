@@ -28,18 +28,15 @@ class ICodeChunksStore(Protocol):
     @abstractmethod
     async def get_repo_file_chunks(self,  user_id : str | uuid.UUID , repo_id: str | uuid.UUID,  file_name:str="readme") -> List[dict]: ...
     
-    async def similarity_search(
+    @abstractmethod
+    async def get_user_repo_chunks_multi(
             self,
-            embedding: List[float],
             user_id: str | uuid.UUID,
             repo_id: str | uuid.UUID,
-            limit: int = 5,
+            query_embeddings: List[List[float]],
+            emb_dim: int,
+            limit: int = 10,
     ) -> List[Dict[str, Any]]: ...
-    
-    @abstractmethod
-    async def get_user_repo_chunks(
-            self,user_id: str | uuid.UUID , repo_id: str | uuid.UUID, query_embedding: List[float], limit: int = None
-    ) -> List[dict]: ...
 
 
 class TortoiseCodeChunksStore(ICodeChunksStore):
@@ -89,57 +86,85 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
         except Exception:
             logging.exception(f"{self.get_repo_file_chunks.__name__} failed")
             return []  # Return empty list on error
-
-    async def get_user_repo_chunks(
+    
+    async def get_user_repo_chunks_multi(
         self,
         user_id: str | uuid.UUID,
         repo_id: str | uuid.UUID,
-        query_embedding: List[float],
-        limit: int = 5,
-    ) -> List[Dict]:
-        return await self.similarity_search(
-            embedding=query_embedding,
-            user_id=user_id,
-            repo_id=repo_id,
-            limit=limit,
-        )
-
-    async def similarity_search(
-        self,
-        embedding: List[float],
-        user_id: str | uuid.UUID,
-        repo_id: str | uuid.UUID,
-        limit: int = 5,
+        query_embeddings: List[List[float]],
+        emb_dim: int,
+        limit: int = 10,
     ) -> List[Dict[str, Any]]:
-
-        if not repo_id or not user_id or limit <= 0:
+        """
+        Multi-query:
+        - Accepts multiple query vectors.
+        - Computes similarity per (chunk, query).
+        - Fuses per-chunk via SUM(sim) as fusion_score.
+        - Orders by fusion_score, then max_sim, then created_at.
+        """
+        if not repo_id or not user_id or limit <= 0 or not query_embeddings:
             return []
 
-        if not embedding or len(embedding) != 768:
-            logging.error(
-                f"Embedding dim mismatch: got {0 if not embedding else len(embedding)}, expected 768"
-            )
+        # Guard: consistent dimensions
+        if any(len(v) != emb_dim for v in query_embeddings):
+            logging.error("Embeddings have inconsistent dimensions.")
             return []
 
-        sql = """
-            WITH ranked AS (
-                SELECT
-                    c.*,
-                    1 - (c.embedding <=> $1::vector(768)) AS score
-                FROM public.code_chunks c
-                WHERE c.user_id = $2
-                  AND c.repo_id = $3
+        # Build VALUES placeholders for each query vector: ($1::vector(dim)), ($2::vector(dim)), ...
+        n = len(query_embeddings)
+        values_sql = ", ".join(f"(${i+1}::vector({emb_dim}))" for i in range(n))
+
+        # Next placeholders for user_id, repo_id, limit:
+        p_user   = n + 1
+        p_repo   = n + 2
+        p_limit  = n + 3
+
+        sql = f"""
+            WITH queries(qvec) AS (
+              VALUES {values_sql}
+            ),
+            scored AS (
+              SELECT
+                c.id,
+                c.created_at,
+                1 - (c.embedding <=> q.qvec) AS sim
+              FROM public.code_chunks AS c
+              CROSS JOIN queries AS q
+              WHERE c.user_id = ${p_user}
+                AND c.repo_id = ${p_repo}
+                -- OPTIONAL, ENABLE IF YOU WANT TO REMOVE THE LOW RANKED ONES
+                -- AND (1 - (c.embedding <=> q.qvec)) >= 0.20
+            ),
+            agg AS (
+              SELECT
+                id,
+                MAX(created_at) AS created_at,
+                SUM(sim)        AS fusion_score,
+                MAX(sim)        AS max_sim
+              FROM scored
+              GROUP BY id
             )
-            SELECT *
-            FROM ranked
-            ORDER BY score DESC, created_at DESC
-            LIMIT $4;
+            SELECT
+              c.id,
+              c.file_name,
+              c.file_path,
+              c.content,
+              a.created_at,
+              a.fusion_score,
+              a.max_sim
+            FROM agg a
+            JOIN public.code_chunks c ON c.id = a.id
+              -- for defensive clarity:
+              AND c.user_id = ${p_user}
+              AND c.repo_id = ${p_repo}
+            ORDER BY a.fusion_score DESC, a.max_sim DESC, a.created_at DESC
+            LIMIT ${p_limit};
         """
         try:
             async with PgVectorConnection("default") as conn:
-                params = (embedding, str(user_id), str(repo_id), int(limit))
+                params = [*query_embeddings, str(user_id), str(repo_id), int(limit)]
                 rows = await conn.fetch(sql, *params)
                 return [dict(r) for r in rows]
-        except Exception as e:
-            logging.error(f"Similarity search failed: {e}")
+        except Exception:
+            logging.exception("Multi-query similarity search failed")
             return []

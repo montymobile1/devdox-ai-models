@@ -55,6 +55,7 @@ def make_code_chunk_response(**kwargs) -> CodeChunksResponseDTO:
         created_at=kwargs.get("created_at", now)
     )
 
+
 @pytest.mark.asyncio
 class TestFakeCodeChunksStore:
     async def test_set_fake_data_populates_store(self):
@@ -103,7 +104,6 @@ class TestFakeCodeChunksStore:
         fake.set_fake_data(chunks)
 
         result = await fake.find_all_by_repo_id_with_limit(repo_id="repo", limit=3)
-
         assert len(result) == 3
 
     async def test_find_all_by_repo_id_with_limit_handles_empty(self):
@@ -114,97 +114,109 @@ class TestFakeCodeChunksStore:
     async def test_get_repo_file_chunks(self):
         fake = FakeCodeChunksStore()
 
-        chk_1 = make_code_chunk_response(file_name="xyz_12345", content="print('xyz_12345')", created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2))
-        chk_2 = make_code_chunk_response(file_name="12345_xyz", content="print('12345_xyz')", created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1))
-        chk_3 = make_code_chunk_response(repo_id="different_repo_id", file_name="xyz", content="print('different_repo_id')")
-
-        fake.set_fake_data([chk_1, chk_2, chk_3])
-
-        result = await fake.get_repo_file_chunks(user_id=chk_1.user_id , repo_id=chk_1.repo_id,  file_name="xyz")
-        assert [{"content": chk_2.content}, {"content": chk_1.content}] == result
-
-    async def test_similarity_search_success(self):
-        fake = FakeCodeChunksStore()
-
-        now = datetime.datetime.now(datetime.timezone.utc)
-
-        # Deterministic query
-        query = k_hot_vectors([0, 4])  # ||q|| = 1
-
-        # Deterministic stored rows
-        # chk_2 overlaps with query on 0 & 4 => sim = 2 / sqrt(2*3) = sqrt(2/3)
-        chk_2 = make_code_chunk_response(
-            file_name="12345_xyz",
-            content="print('12345_xyz')",
-            embedding=k_hot_vectors([0, 4, 7]),
-            created_at=now - datetime.timedelta(days=1),
-        )
-        # chk_1 is orthogonal => sim = 0.0
         chk_1 = make_code_chunk_response(
             file_name="xyz_12345",
             content="print('xyz_12345')",
-            embedding=k_hot_vectors([1, 2, 3]),
-            created_at=now - datetime.timedelta(days=2),
+            created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2),
         )
-        # Different repo_id => excluded by filter
+        chk_2 = make_code_chunk_response(
+            file_name="12345_xyz",
+            content="print('12345_xyz')",
+            created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1),
+        )
         chk_3 = make_code_chunk_response(
-            repo_id="different_repo_id",
-            file_name="xyz",
-            content="print('different_repo_id')",
-            embedding=k_hot_vectors([5, 6]),
-            created_at=now,
+            repo_id="different_repo_id", file_name="xyz", content="print('different_repo_id')"
         )
 
         fake.set_fake_data([chk_1, chk_2, chk_3])
 
-        result = await fake.similarity_search(
-            embedding=query,
-            user_id=chk_1.user_id,
-            repo_id=chk_1.repo_id,
+        result = await fake.get_repo_file_chunks(
+            user_id=chk_1.user_id, repo_id=chk_1.repo_id, file_name="xyz"
+        )
+        assert [{"content": chk_2.content}, {"content": chk_1.content}] == result
+
+    async def test_get_user_repo_chunks_multi_success(self):
+        """
+        Two queries; one doc overlaps with both -> highest fusion_score.
+        Fusion = sum of per-query cosine sims, MaxSim = max of per-query sims.
+        Ordered by fusion_score DESC, then max_sim DESC, then created_at DESC.
+        """
+        fake = FakeCodeChunksStore()
+        now = datetime.datetime.now(datetime.timezone.utc)
+
+        # queries (unit norm k-hot by helper)
+        q1 = k_hot_vectors([0])       # ||q1|| = 1
+        q2 = k_hot_vectors([4])       # ||q2|| = 1
+        queries = [q1, q2]
+
+        # doc B overlaps with both q1 and q2 -> fusion highest
+        doc_B = make_code_chunk_response(
+            file_name="doc_B.py",
+            content="print('B')",
+            embedding=k_hot_vectors([0, 4, 7]),   # norm sqrt(3)
+            created_at=now - datetime.timedelta(days=1),
+        )
+        # doc A orthogonal to both
+        doc_A = make_code_chunk_response(
+            file_name="doc_A.py",
+            content="print('A')",
+            embedding=k_hot_vectors([1, 2, 3]),
+            created_at=now - datetime.timedelta(days=2),
+        )
+        # different repo -> filtered out
+        doc_X = make_code_chunk_response(
+            repo_id="other",
+            file_name="doc_X.py",
+            content="print('X')",
+            embedding=k_hot_vectors([0, 4]),
+            created_at=now,
+        )
+
+        fake.set_fake_data([doc_A, doc_B, doc_X])
+
+        out = await fake.get_user_repo_chunks_multi(
+            user_id=doc_A.user_id,
+            repo_id=doc_A.repo_id,
+            query_embeddings=queries,
+            emb_dim=len(q1),
             limit=5,
         )
 
-        # Stable order & exact scores
-        assert [r["file_name"] for r in result[:2]] == [
-            chk_2.file_name,
-            chk_1.file_name,
-        ]
+        # B comes first
+        assert [r["file_name"] for r in out[:2]] == ["doc_B.py", "doc_A.py"]
 
-        expected_top = math.sqrt(2 / 3)
-        assert math.isclose(
-            result[0]["score"], expected_top, rel_tol=0.0, abs_tol=ZERO_NORM_TOLERANCE
-        )
-        assert math.isclose(result[1]["score"], 0.0, rel_tol=0.0, abs_tol=ZERO_NORM_TOLERANCE)
+        # Expected sims:
+        # sim(q1, B) = 1/sqrt(3), sim(q2, B) = 1/sqrt(3)  => fusion_B = 2/sqrt(3)
+        expected_fusion_B = 2 / math.sqrt(3)
+        assert math.isclose(out[0]["fusion_score"], expected_fusion_B, abs_tol=ZERO_NORM_TOLERANCE)
+
+        # A had no overlap => fusion ~ 0.0
+        assert math.isclose(out[1]["fusion_score"], 0.0, abs_tol=ZERO_NORM_TOLERANCE)
 
     @pytest.mark.parametrize(
-        "input_kwarg",
+        "kwargs,case",
         [
-            {"embedding":k_hot_vectors([0, 5])  , "user_id":"valid_user_id", "repo_id":"valid_repo_id", "limit": -1 },
-            {"embedding":k_hot_vectors([0, 5])  , "user_id":"valid_user_id", "repo_id":None, "limit": 5 },
-            {"embedding":k_hot_vectors([0, 5])  , "user_id": None, "repo_id":"valid_repo_id", "limit": 5 },
-            {"embedding":None, "user_id": "valid_user_id", "repo_id":"valid_repo_id", "limit": 5 },
-            {"embedding":k_hot_vectors([0], dim=10) , "user_id": "valid_user_id", "repo_id":"valid_repo_id", "limit": 5 },
-         ],
-        ids=[
-            "invalid limit", "Null repo_id", "Null user_id","embedding not of valid length", "Null embedding"
-        ]
+            ({"query_embeddings": [k_hot_vectors([0, 5])], "emb_dim": 768, "user_id": "u", "repo_id": "r", "limit": -1}, "invalid limit"),
+            ({"query_embeddings": [k_hot_vectors([0, 5])], "emb_dim": 768, "user_id": "u", "repo_id": None, "limit": 5}, "null repo"),
+            ({"query_embeddings": [k_hot_vectors([0, 5])], "emb_dim": 768, "user_id": None, "repo_id": "r", "limit": 5}, "null user"),
+            ({"query_embeddings": None, "emb_dim": 768, "user_id": "u", "repo_id": "r", "limit": 5}, "null embeddings"),
+            # inconsistent dims (one 768, one 10) should be rejected
+            ({"query_embeddings": [k_hot_vectors([0], dim=768), k_hot_vectors([1], dim=10)], "emb_dim": 768, "user_id": "u", "repo_id": "r", "limit": 5}, "inconsistent dims"),
+            # emb_dim mismatch but consistent vectors still allowed? Our fake enforces vectors length == emb_dim, so this fails:
+            ({"query_embeddings": [k_hot_vectors([0], dim=10)], "emb_dim": 768, "user_id": "u", "repo_id": "r", "limit": 5}, "emb_dim mismatch"),
+        ],
+        ids=["invalid limit", "Null repo_id", "Null user_id", "Null embeddings", "Inconsistent dims", "Emb_dim mismatch"],
     )
-    async def test_similarity_search_invalid_params(self, input_kwarg):
+    async def test_get_user_repo_chunks_multi_invalid_params(self, kwargs, case):
         fake = FakeCodeChunksStore()
-
-        result = await fake.similarity_search(
-            **input_kwarg
-        )
-
-        assert result == []
+        out = await fake.get_user_repo_chunks_multi(**kwargs)
+        assert out == []
 
     async def test_bulk_save_inserts_data(self):
-
         fake = FakeCodeChunksStore()
 
         dto_list = []
-
-        for i in range(0,2):
+        for i in range(2):
             dto_list.append(
                 CodeChunksRequestDTO(
                     user_id="u1",
@@ -212,7 +224,7 @@ class TestFakeCodeChunksStore:
                     content=f"print('hi from r{i}')",
                     file_name=f"main{i}.py",
                     file_path=f"/main{i}.py",
-                    file_size=i*10,
+                    file_size=i * 10,
                     commit_number="commit1",
                 )
             )
@@ -221,7 +233,6 @@ class TestFakeCodeChunksStore:
 
         assert fake.total_count == len(dto_list)
         assert len(result_list) == len(dto_list)
-
         for index, res in enumerate(result_list):
             assert res in fake.data_store
             assert res.id is not None
@@ -238,33 +249,41 @@ class TestStubCodeChunksStore:
         bulk_save = stub.bulk_save
         find_all_by_repo_id_with_limit = stub.find_all_by_repo_id_with_limit
         get_repo_file_chunks = stub.get_repo_file_chunks
-        get_user_repo_chunks = stub.get_user_repo_chunks
+        get_user_repo_chunks_multi = stub.get_user_repo_chunks_multi
 
-        generated_response = make_code_chunk_response()
+        generated = make_code_chunk_response()
 
-        expected_result = {
-            save.__name__: generated_response,
-            bulk_save.__name__: [generated_response],
-            find_all_by_repo_id_with_limit.__name__: [generated_response,generated_response],
-            get_repo_file_chunks.__name__: [{"content": generated_response.content}, {"content": generated_response.content}],
-            get_user_repo_chunks.__name__: [asdict(generated_response), asdict(generated_response)],
+        # shape the multi-response the way production returns (dict rows + fusion/max)
+        multi_resp = [
+            {**asdict(generated), "fusion_score": 0.9, "max_sim": 0.9},
+            {**asdict(generated), "fusion_score": 0.5, "max_sim": 0.5},
+        ]
+
+        expected = {
+            save.__name__: generated,
+            bulk_save.__name__: [generated],
+            find_all_by_repo_id_with_limit.__name__: [generated, generated],
+            get_repo_file_chunks.__name__: [{"content": generated.content}, {"content": generated.content}],
+            get_user_repo_chunks_multi.__name__: multi_resp,
         }
 
-        stub.set_output(save, expected_result.get(save.__name__) )
-        stub.set_output(bulk_save, expected_result.get(bulk_save.__name__) )
-        stub.set_output(find_all_by_repo_id_with_limit, expected_result.get(find_all_by_repo_id_with_limit.__name__) )
-        stub.set_output(get_repo_file_chunks, expected_result.get(get_repo_file_chunks.__name__) )
-        stub.set_output(get_user_repo_chunks, expected_result.get(get_user_repo_chunks.__name__) )
+        stub.set_output(save, expected[save.__name__])
+        stub.set_output(bulk_save, expected[bulk_save.__name__])
+        stub.set_output(find_all_by_repo_id_with_limit, expected[find_all_by_repo_id_with_limit.__name__])
+        stub.set_output(get_repo_file_chunks, expected[get_repo_file_chunks.__name__])
+        stub.set_output(get_user_repo_chunks_multi, expected[get_user_repo_chunks_multi.__name__])
 
-        await save(create_model=CodeChunksRequestDTO(
-            user_id="u1",
-            repo_id="r1",
-            content="print('hi')",
-            file_name="main.py",
-            file_path="/main.py",
-            file_size=100,
-            commit_number="commit1",
-        ))
+        await save(
+            create_model=CodeChunksRequestDTO(
+                user_id="u1",
+                repo_id="r1",
+                content="print('hi')",
+                file_name="main.py",
+                file_path="/main.py",
+                file_size=100,
+                commit_number="commit1",
+            )
+        )
 
         await bulk_save(
             create_model=[
@@ -280,10 +299,15 @@ class TestStubCodeChunksStore:
             ]
         )
 
-        await find_all_by_repo_id_with_limit(repo_id=generated_response.repo_id, limit= 100)
+        await find_all_by_repo_id_with_limit(repo_id=generated.repo_id, limit=100)
+        await get_repo_file_chunks(user_id=generated.user_id, repo_id=generated.repo_id, file_name=generated.file_name)
 
-        await get_repo_file_chunks(user_id=generated_response.user_id, repo_id=generated_response.repo_id, file_name=generated_response.file_name)
+        await get_user_repo_chunks_multi(
+            user_id=generated.user_id,
+            repo_id=generated.repo_id,
+            query_embeddings=[k_hot_vectors([2, 3])],
+            emb_dim=768,
+            limit=5,
+        )
 
-        await get_user_repo_chunks(user_id=generated_response.user_id, repo_id=generated_response.repo_id, query_embedding=k_hot_vectors([2, 3]), limit= 5)
-
-        assert expected_result == stub._outputs
+        assert expected == stub._outputs

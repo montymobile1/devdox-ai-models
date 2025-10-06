@@ -127,59 +127,25 @@ class TestGetRepoFileChunks:
         assert out == []
         assert "get_repo_file_chunks" in logged.get("msg", "")
 
-
-class TestGetUserRepoChunks:
-    @pytest.mark.asyncio
-    async def test_delegates_to_similarity_search(self, monkeypatch):
-        """Method should simply forward arguments to similarity_search and return the result."""
-        store = TortoiseCodeChunksStore()
-        expected = [{"id": "x"}]
-        spy = AsyncMock(return_value=expected)
-        monkeypatch.setattr(store, "similarity_search", spy)
-
-        emb = [0.0] * 768
-        out = await store.get_user_repo_chunks("u", "r", query_embedding=emb, limit=7)
-        assert out == expected
-        spy.assert_awaited_once_with(embedding=emb, user_id="u", repo_id="r", limit=7)
-
-
-class TestSimilaritySearch:
-    @pytest.mark.asyncio
-    async def test_rejects_bad_inputs(self):
-        """Empty repo/user or nonpositive limit -> []; wrong embedding length -> []."""
-        store = TortoiseCodeChunksStore()
-        good_emb = [0.0] * 768
-
-        # bad repo/user/limit
-        assert await store.similarity_search(good_emb, user_id="", repo_id="r", limit=5) == []
-        assert await store.similarity_search(good_emb, user_id="u", repo_id="", limit=5) == []
-        assert await store.similarity_search(good_emb, user_id="u", repo_id="r", limit=0) == []
-
-        # bad embedding length
-        short = [0.0] * 10
-        assert await store.similarity_search(short, user_id="u", repo_id="r", limit=5) == []
-
+class TestGetUserRepoChunksMulti:
     @pytest.mark.asyncio
     async def test_executes_sql_via_fake_pgvector_connection(self, monkeypatch):
         """
-        We fake PgVectorConnection as an async context manager whose .fetch()
-        returns rows; we assert the parameters passed to fetch are correct.
+        We fake PgVectorConnection; assert the param ordering matches:
+        [*query_embeddings, user_id, repo_id, limit]
         """
         store = TortoiseCodeChunksStore()
 
         captured = {"sql": None, "params": None}
         rows = [
-            {"id": uuid.uuid4(), "content": "x", "score": 0.99},
-            {"id": uuid.uuid4(), "content": "y", "score": 0.98},
+            {"id": uuid.uuid4(), "content": "x", "fusion_score": 1.23, "max_sim": 0.9, "created_at": None},
+            {"id": uuid.uuid4(), "content": "y", "fusion_score": 1.10, "max_sim": 0.8, "created_at": None},
         ]
 
         class FakeConn:
-            def __init__(self, alias):
-                self.alias = alias
-            async def __aenter__(self):
-                return self
-            async def __aexit__(self, exc_type, exc, tb):
-                return False
+            def __init__(self, alias): self.alias = alias
+            async def __aenter__(self): return self
+            async def __aexit__(self, exc_type, exc, tb): return False
             async def fetch(self, sql, *params):
                 captured["sql"] = sql
                 captured["params"] = params
@@ -187,38 +153,66 @@ class TestSimilaritySearch:
 
         monkeypatch.setattr(repo_mod, "PgVectorConnection", FakeConn)
 
-        emb = [0.0] * 768
-        out = await store.similarity_search(embedding=emb, user_id="u", repo_id="r", limit=5)
-        assert out == rows  # function returns list[dict]
+        emb1 = [0.0] * 768
+        emb2 = [0.1] * 768
+        out = await store.get_user_repo_chunks_multi(
+            user_id="u",
+            repo_id="r",
+            query_embeddings=[emb1, emb2],
+            emb_dim=768,
+            limit=5,
+        )
+        assert out == rows
 
-        # Verify parameters coerced as in the repo code
-        assert captured["params"][0] is emb
-        assert captured["params"][1] == "u"
-        assert captured["params"][2] == "r"
-        assert captured["params"][3] == 5
+        # Params layout: [emb1, emb2, "u", "r", 5]
+        assert captured["params"][0] is emb1
+        assert captured["params"][1] is emb2
+        assert captured["params"][2] == "u"
+        assert captured["params"][3] == "r"
+        assert captured["params"][4] == 5
 
+        # (Optional) Sanity check sql contains the CTEs we expect
+        assert "WITH queries(qvec) AS" in captured["sql"]
+        assert "CROSS JOIN queries" in captured["sql"]
+        assert "SUM(sim)        AS fusion_score" in captured["sql"]
+    
     @pytest.mark.asyncio
-    async def test_failure_logs_error_and_returns_empty_list(self, monkeypatch):
-        """If connection/fetch fails we log error and return []."""
+    async def test_rejects_bad_inputs_multi(self):
+        store = TortoiseCodeChunksStore()
+        e1 = [0.0] * 768
+        e2 = [0.1] * 768
+
+        # missing repo/user/limit <= 0 / empty embeddings
+        assert await store.get_user_repo_chunks_multi(user_id="", repo_id="r", query_embeddings=[e1], emb_dim=768, limit=5) == []
+        assert await store.get_user_repo_chunks_multi(user_id="u", repo_id="", query_embeddings=[e1], emb_dim=768, limit=5) == []
+        assert await store.get_user_repo_chunks_multi(user_id="u", repo_id="r", query_embeddings=[e1], emb_dim=768, limit=0) == []
+        assert await store.get_user_repo_chunks_multi(user_id="u", repo_id="r", query_embeddings=[], emb_dim=768, limit=5) == []
+
+        # inconsistent dims
+        bad = [0.0] * 10
+        assert await store.get_user_repo_chunks_multi(user_id="u", repo_id="r", query_embeddings=[e1, bad], emb_dim=768, limit=5) == []
+    
+    @pytest.mark.asyncio
+    async def test_multi_failure_logs_error_and_returns_empty_list(self, monkeypatch):
         store = TortoiseCodeChunksStore()
 
         class BoomConn:
             def __init__(self, alias): ...
-            async def __aenter__(self):
-                return self
-            async def __aexit__(self, exc_type, exc, tb):
-                return False
+            async def __aenter__(self): return self
+            async def __aexit__(self, exc_type, exc, tb): return False
             async def fetch(self, sql, *params):
                 raise RuntimeError("db down")
 
         monkeypatch.setattr(repo_mod, "PgVectorConnection", BoomConn)
 
         logged = {"msg": None}
-        def fake_error(msg):
+        def fake_exc(msg):
             logged["msg"] = msg
-        monkeypatch.setattr(repo_mod.logging, "error", fake_error)
+        monkeypatch.setattr(repo_mod.logging, "exception", fake_exc)
 
-        emb = [0.0] * 768
-        out = await store.similarity_search(embedding=emb, user_id="u", repo_id="r", limit=3)
+        emb1 = [0.0] * 768
+        out = await store.get_user_repo_chunks_multi(
+            user_id="u", repo_id="r", query_embeddings=[emb1], emb_dim=768, limit=3
+        )
         assert out == []
-        assert "Similarity search failed" in (logged["msg"] or "")
+        assert "Multi-query similarity search failed" in (logged["msg"] or "")
