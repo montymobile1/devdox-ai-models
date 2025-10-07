@@ -93,6 +93,17 @@ class FakeRepoStore(FakeBase, IRepoStore):
 
         return match
 
+    async def find_by_repo_id_user_id(self, repo_id: str, user_id: str) -> Optional[RepoResponseDTO]:
+        self._before(self.find_by_repo_id_user_id, repo_id=repo_id, user_id=user_id)
+
+        match = None
+        for key, obj_list in self.__get_data_store().items():
+            match = next((obj for obj in obj_list if obj.repo_id == repo_id), None)
+            if match:
+                break
+
+        return match
+
     async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
         self._before(self.find_by_id, id=id)
 
@@ -254,6 +265,9 @@ class StubRepoStore(StubPlanMixin, IRepoStore):
 
     async def find_by_repo_id(self, repo_id: str) -> Optional[RepoResponseDTO]:
         return await self._stub(self.find_by_repo_id, repo_id=repo_id )
+
+    async def find_by_repo_id_user_id(self, repo_id: str, user_id: str) -> Optional[RepoResponseDTO]:
+        return await self._stub(self.find_by_repo_id_user_id, repo_id=repo_id, user_id=user_id)
 
     async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
         return await self._stub(self.find_by_id, id=id)
