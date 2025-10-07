@@ -287,14 +287,6 @@ class TestFindByUserAndAliasName:
         fake_class.filter.assert_called_once_with(user_id="u", repo_alias_name="alias")
 
 
-import pytest
-from unittest.mock import MagicMock, AsyncMock
-
-from models_src.dto.repo import RepoResponseDTO
-from models_src.repositories.repo import TortoiseRepoStore
-from test.unit.common_test_tools.model_factories import make_repo
-from test.unit.common_test_tools.qs_chain import make_qs_chain
-
 
 class TestFindByRepoIdUserId:
     """
