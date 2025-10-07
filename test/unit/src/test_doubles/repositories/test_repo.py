@@ -41,8 +41,49 @@ def make_repo_response(**overrides) -> RepoResponseDTO:
         repo_system_reference=overrides.get("repo_system_reference"),
     )
 
+
+
 @pytest.mark.asyncio
 class TestFakeRepoStore:
+
+    @pytest.fixture
+    def sample_repos(self):
+        """Create sample repository data for testing."""
+        return [
+            RepoResponseDTO(
+                id=uuid.uuid4(),
+                user_id="user_alice",
+                repo_id="repo_001",
+                repo_name="alice-project-1",
+                html_url="https://github.com/alice/project1",
+                status="active"
+            ),
+            RepoResponseDTO(
+                id=uuid.uuid4(),
+                user_id="user_alice",
+                repo_id="repo_002",
+                repo_name="alice-project-2",
+                html_url="https://github.com/alice/project2",
+                status="active"
+            ),
+            RepoResponseDTO(
+                id=uuid.uuid4(),
+                user_id="user_bob",
+                repo_id="repo_003",
+                repo_name="bob-project-1",
+                html_url="https://github.com/bob/project1",
+                status="active"
+            ),
+            RepoResponseDTO(
+                id=uuid.uuid4(),
+                user_id="user_bob",
+                repo_id="repo_004",
+                repo_name="bob-project-2",
+                html_url="https://github.com/bob/project2",
+                status="active"
+            ),
+        ]
+
 
     async def test_set_fake_data_and_count(self):
         store = FakeRepoStore()
@@ -191,6 +232,148 @@ class TestFakeRepoStore:
 
         assert result == b
 
+    @pytest.mark.asyncio
+    async def test_returns_repo_when_both_repo_id_and_user_id_match(
+            self
+    ):
+
+        fstore = FakeRepoStore()
+
+        a = make_repo_response(user_id="user_alice", repo_id="repo_001")
+
+        fstore.set_fake_data([a])
+
+        result = await fstore.find_by_repo_id_user_id(
+            repo_id="repo_001",
+            user_id="user_alice"
+        )
+
+        assert result is not None
+        assert result.repo_id == "repo_001"
+        assert result.user_id == "user_alice"
+
+        @pytest.mark.asyncio
+        async def test_returns_correct_repo_for_different_user(
+                self
+        ):
+            """Verify that Bob can access his own repos."""
+            fstore = FakeRepoStore()
+
+            a = make_repo_response(user_id="user_bob", repo_id="repo_003")
+
+            fstore.set_fake_data([a])
+
+
+            result = await fstore.find_by_repo_id_user_id(
+                repo_id="repo_003",
+                user_id="user_bob"
+            )
+
+            assert result is not None
+            assert result.repo_id == "repo_003"
+            assert result.user_id == "user_bob"
+
+    @pytest.mark.asyncio
+    async def test_SECURITY_returns_none_when_user_id_doesnt_match(
+         self, sample_repos
+    ):
+        """
+        🚨 SECURITY CRITICAL: Alice should NOT be able to access Bob's repo
+        even if she knows the repo_id.
+
+        This test FAILS with the current buggy implementation!
+        """
+        fstore = FakeRepoStore()
+        fstore.set_fake_data(sample_repos)
+
+        # Alice tries to access Bob's repo_003
+        result = await fstore.find_by_repo_id_user_id(
+            repo_id="repo_003",  # Bob's repo
+            user_id="user_alice"  # Alice's user_id
+        )
+
+        # EXPECTED: None (Alice should not have access)
+        # ACTUAL WITH BUG: Returns Bob's repo! (Security breach!)
+        assert result is None, \
+            "SECURITY VIOLATION: User accessed another user's repository!"
+
+    @pytest.mark.asyncio
+    async def test_SECURITY_bob_cannot_access_alice_repo(
+            self, sample_repos
+    ):
+        """
+        🚨 SECURITY: Bob should NOT be able to access Alice's repo.
+        """
+        fstore = FakeRepoStore()
+        fstore.set_fake_data(sample_repos)
+
+        # Alice tries to access Bob's repo_003
+        result = await fstore.find_by_repo_id_user_id(
+            repo_id="repo_001",  # Alice's repo
+            user_id="user_bob"  # Bob's user_id
+        )
+
+        assert result is None, \
+            "SECURITY VIOLATION: Bob accessed Alice's repository!"
+
+    @pytest.mark.asyncio
+    async def test_SECURITY_anonymous_user_cannot_access_repos(
+            self, sample_repos
+    ):
+        """
+        🚨 SECURITY: Unknown/anonymous users should not access any repos.
+        """
+        fstore = FakeRepoStore()
+        fstore.set_fake_data(sample_repos)
+
+        result = await fstore.find_by_repo_id_user_id(
+            repo_id="repo_001",
+            user_id="user_anonymous"
+        )
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_repo_id_not_found(
+            self, sample_repos
+    ):
+        """When repo_id doesn't exist, return None."""
+        fstore = FakeRepoStore()
+        fstore.set_fake_data(sample_repos)
+
+        result = await fstore.find_by_repo_id_user_id(
+            repo_id="nonexistent_repo",
+            user_id="user_alice"
+        )
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_user_id_not_found(
+            self, sample_repos
+    ):
+        """When user_id doesn't exist, return None."""
+        fstore = FakeRepoStore()
+        fstore.set_fake_data(sample_repos)
+
+        result = await fstore.find_by_repo_id_user_id(
+            repo_id="repo_001",
+            user_id="nonexistent_user"
+        )
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_empty_data_store(self):
+        """When no repos exist, return None."""
+        # Don't populate any data
+        fstore = FakeRepoStore()
+        result = await fstore.find_by_repo_id_user_id(
+            repo_id="any_repo",
+            user_id="any_user"
+        )
+
+        assert result is None
 
 @pytest.mark.asyncio
 class TestStubRepoStoreStore:
