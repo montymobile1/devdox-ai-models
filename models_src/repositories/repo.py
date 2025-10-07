@@ -67,6 +67,11 @@ class IRepoStore(Protocol):
             self, user_id: str, repo_alias_name: str
     ) -> RepoResponseDTO: ...
 
+    @abstractmethod
+    async def find_by_repo_id_user_id(
+            self, repo_id: str, user_id: str
+    ) -> Optional[RepoResponseDTO]: ...
+
 class TortoiseRepoStore(IRepoStore):
     model = Repo
     model_mapper = TortoiseModelMapper
@@ -130,6 +135,14 @@ class TortoiseRepoStore(IRepoStore):
 
     async def find_by_repo_id(self, repo_id: str) -> Optional[RepoResponseDTO]:
         raw_data = await self.model.filter(repo_id=repo_id).first()
+        return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
+
+    async def find_by_repo_id_user_id(self, repo_id: str, user_id: str) -> Optional[RepoResponseDTO]:
+        try:
+            raw_data = await self.model.filter(repo_id=str(repo_id), user_id=user_id).first()
+
+        except DoesNotExist as e:
+            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value) from e
         return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
 
     async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
