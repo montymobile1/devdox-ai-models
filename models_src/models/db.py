@@ -12,8 +12,9 @@ async def close_db():
 
 # Async context manager to get a Tortoise connection and register pgvector on demand
 class PgVectorConnection:
-    def __init__(self, alias: str = "default"):
+    def __init__(self, alias: str = "default", schema: str = "extensions"):
         self.db = connections.get(alias)
+        self.schema = schema
         self.raw = None  # type: ignore
     
     async def __aenter__(self) -> asyncpg.Connection:
@@ -21,7 +22,7 @@ class PgVectorConnection:
         self.raw = await self.db._pool.acquire()
         
         # tell asyncpg how to handle pgvector
-        await register_vector(self.raw)
+        await register_vector(self.raw, schema=self.schema)
         
         return self.raw
     
