@@ -1,6 +1,16 @@
+from enum import StrEnum
+
 from tortoise.models import Model
 from tortoise import fields
 import uuid
+
+
+class StatusTypes(StrEnum):
+    PENDING = "pending"
+    ANALYSIS_PENDING = "analysis pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class Repo(Model):
@@ -79,7 +89,7 @@ class Repo(Model):
         null=True, description="Error message if processing failed"
     )
     last_commit = fields.CharField(max_length=255, default="")
-    status = fields.CharField(max_length=255, default="pending")
+    status = fields.CharField(max_length=255, default=StatusTypes.PENDING)
 
     repo_alias_name = fields.CharField(
         max_length=100,
