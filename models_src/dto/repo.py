@@ -43,7 +43,7 @@ class RepoResponseDTO:
     repo_system_reference: Optional[str] = None
     repo_author_name: Optional[str] = None
     repo_author_email: Optional[str] = None
-
+    total_embeddings: Optional[int] = None
 
 @dataclass
 class RepoRequestDTO:

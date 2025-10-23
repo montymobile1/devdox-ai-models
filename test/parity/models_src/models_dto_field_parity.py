@@ -1,6 +1,6 @@
 import dataclasses
 from dataclasses import fields, is_dataclass
-from typing import List, Optional, Set, Type
+from typing import Iterable, List, Optional, Set, Type
 
 from tortoise import Model
 
@@ -18,9 +18,9 @@ from models_src.models.repo import Repo
 from models_src.models.user import User
 
 def symmetric_field_diff(
-    dataclass_type: Type[dataclasses],
+    dataclass_type: Type[dataclasses.dataclass],
     tortoise_model: Type[Model],
-    exclude: Optional[set[str]] = None,
+    exclude: Optional[Iterable[str]] = None,
 ) -> List[str]:
     """
     Return a sorted list of field names that exist in exactly one of:
