@@ -7,6 +7,7 @@ import uuid
 class QueueJobType(StrEnum):
     ANALYZE = "analyze"
     REANALYZE = "reanalyze"
+    PROCESS = "process"
 
 class StatusTypes(StrEnum):
     PENDING = "pending"
