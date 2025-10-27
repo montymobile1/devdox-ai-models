@@ -4,6 +4,9 @@ from tortoise.models import Model
 from tortoise import fields
 import uuid
 
+class QueueJobType(StrEnum):
+    ANALYZE = "analyze"
+    REANALYZE = "reanalyze"
 
 class StatusTypes(StrEnum):
     PENDING = "pending"
