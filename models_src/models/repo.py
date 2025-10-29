@@ -4,10 +4,15 @@ from tortoise.models import Model
 from tortoise import fields
 import uuid
 
+class QueueJobType(StrEnum):
+    ANALYZE = "analyze"
+    REANALYZE = "reanalyze"
+    PROCESS = "process"
 
 class StatusTypes(StrEnum):
     PENDING = "pending"
     ANALYSIS_PENDING = "analysis pending"
+    REANALYSIS_PENDING = "re-analyse pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
