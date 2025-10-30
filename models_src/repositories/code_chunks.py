@@ -61,12 +61,17 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
         return self.model_mapper.map_model_to_dataclass(data, CodeChunksResponseDTO)
 
     async def bulk_save(self, create_model: list[CodeChunksRequestDTO]) -> List[CodeChunksResponseDTO]:
-        objs = [
-            self.model(**asdict(r))
-            for r in create_model
-        ]
-
-        _ = await self.model.bulk_create(objs, batch_size=1000)
+        def to_model_kwargs(dto: CodeChunksRequestDTO) -> dict:
+            d = asdict(dto)
+            # never pass generated/non-nullable fields as None
+            d.pop("id", None)
+            d.pop("created_at", None)
+            # drop any Nones so Tortoise can apply defaults
+            d = {k: v for k, v in d.items() if v is not None}
+            return d
+        
+        objs = [self.model(**to_model_kwargs(r)) for r in create_model]
+        await self.model.bulk_create(objs, batch_size=1000)
 
         return self.model_mapper.map_models_to_dataclasses_list(objs, CodeChunksResponseDTO)
 
