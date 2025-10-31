@@ -15,6 +15,6 @@ class ApiLog(Model):
 	
 	process_time_ms = fields.IntField()
 	
-	request = fields.JSONField()
-	response = fields.JSONField()
+	request_body = fields.JSONField()
+	response_body = fields.JSONField()
 
