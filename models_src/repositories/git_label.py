@@ -78,7 +78,8 @@ class TortoiseGitLabelStore(ILabelStore):
     ) -> List[Dict]:
         if not token_ids:
             return []
-        return await self.model.filter(id__in=token_ids).values("id", "git_hosting")
+        return await self.model.find({"_id": {"$in": token_ids}}).to_list()
+
 
     async def find_by_token_id_and_user(
         self, token_id: str, user_id: str
@@ -86,17 +87,21 @@ class TortoiseGitLabelStore(ILabelStore):
         if not token_id or not token_id.strip() or not user_id or not user_id.strip():
             return None
 
-        model = await self.model.filter(id=token_id, user_id=user_id).first()
+        model = await self.model.find_one(
+            self.model.id == token_id, self.model.user_id == user_id
+        )
+
         return self.model_mapper.map_model_to_dataclass(model, GitLabelResponseDTO)
 
     def __find_by_user_id_query(self, user_id, git_hosting: Optional[str] = None):
         if not user_id:
             raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
 
-        query = self.model.filter(user_id=user_id)
-
+        filters = {"user_id": user_id}
         if git_hosting:
-            query = query.filter(git_hosting=git_hosting)
+            filters["git_hosting"] = git_hosting
+
+        query = self.model.find(filters)
 
         return query
 
@@ -106,11 +111,13 @@ class TortoiseGitLabelStore(ILabelStore):
         query = self.__find_by_user_id_query(user_id, git_hosting)
 
         git_labels = (
-            await query.order_by("-created_at")
-            .offset(offset * limit)
+            await query
+            .sort("-created_at")  # Beanie uses .sort instead of .order_by
+            .skip(offset * limit)  # skip instead of offset
             .limit(limit)
-            .all()
+            .to_list()  # async list conversion
         )
+
 
         return self.model_mapper.map_models_to_dataclasses_list(
             git_labels, GitLabelResponseDTO
@@ -128,7 +135,16 @@ class TortoiseGitLabelStore(ILabelStore):
         if not label or not label.strip():
             raise internal_error(**GitLabelErrors.MISSING_LABEL.value)
 
-        query = self.model.filter(user_id=user_id, label__icontains=label)
+
+        query = self.model.find(self.model.user_id == user_id,
+            {
+                "label": {
+                    "$regex": label,
+                    "$options": "i"
+                }
+            }
+
+        )
 
         return query
 
@@ -143,11 +159,12 @@ class TortoiseGitLabelStore(ILabelStore):
 
         query = self.__find_by_user_id_and_label_query(user_id, label)
 
+
         git_labels = (
-            await query.order_by("-created_at")
-            .offset(offset * limit)
+            await query.sort("-created_at")
+            .skip(offset * limit)
             .limit(limit)
-            .all()
+          .to_list()
         )
 
         return self.model_mapper.map_models_to_dataclasses_list(

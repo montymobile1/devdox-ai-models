@@ -26,6 +26,8 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
+    "pymongo==4.15.3",
+    "beanie==2.0.0",
     "tortoise-orm>=0.20.0",
     "tortoise-vector>=0.1.4",
     "pgvector==0.4.1",

@@ -2,11 +2,12 @@ import logging
 import uuid
 from abc import abstractmethod
 from dataclasses import asdict
-from typing import Any, Dict, List, Protocol
+from typing import Any, Dict, List, Protocol, Union
 
 from models_src.dto.code_chunks import CodeChunksRequestDTO, CodeChunksResponseDTO
 from models_src.dto.utils import TortoiseModelMapper
 from models_src.models import CodeChunks
+import numpy as np
 from models_src.models.db import PgVectorConnection
 
 
@@ -16,18 +17,18 @@ class ICodeChunksStore(Protocol):
     async def save(
         self, create_model: CodeChunksRequestDTO
     ) -> CodeChunksResponseDTO: ...
-    
+
     @abstractmethod
     async def bulk_save(self, create_model: list[CodeChunksRequestDTO]) -> List[CodeChunksResponseDTO]: ...
-    
+
     @abstractmethod
     async def find_all_by_repo_id_with_limit(
         self, repo_id: str, limit: int = 100
     ) -> List[CodeChunksResponseDTO]: ...
-    
+
     @abstractmethod
     async def get_repo_file_chunks(self,  user_id : str | uuid.UUID , repo_id: str | uuid.UUID,  file_name:str="readme") -> List[dict]: ...
-    
+
     @abstractmethod
     async def get_user_repo_chunks_multi(
             self,
@@ -66,7 +67,7 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
             for r in create_model
         ]
 
-        _ = await self.model.bulk_create(objs, batch_size=1000)
+        _ = await self.model.insert_many(objs)
 
         return self.model_mapper.map_models_to_dataclasses_list(objs, CodeChunksResponseDTO)
 
@@ -86,23 +87,16 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
         except Exception:
             logging.exception(f"{self.get_repo_file_chunks.__name__} failed")
             return []  # Return empty list on error
-    
+
     async def get_user_repo_chunks_multi(
-        self,
-        user_id: str | uuid.UUID,
-        repo_id: str | uuid.UUID,
-        query_embeddings: List[List[float]],
-        emb_dim: int,
-        limit: int = 10,
-    ) -> List[Dict[str, Any]]:
-        """
-        Multi-query:
-        - Accepts multiple query vectors.
-        - Computes similarity per (chunk, query).
-        - Fuses per-chunk via SUM(sim) as fusion_score.
-        - Orders by fusion_score, then max_sim, then created_at.
-        """
-        if not repo_id or not user_id or limit <= 0 or not query_embeddings:
+            self,
+            user_id: str | uuid.UUID,
+            repo_id: str | uuid.UUID,
+            query_embeddings: List[List[float]],
+            emb_dim: int,
+            limit: int = 10,
+        ) -> List[Dict[str, Any]]:
+        if not query_embeddings or not user_id or not repo_id or limit <= 0:
             return []
 
         # Guard: consistent dimensions
@@ -110,61 +104,41 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
             logging.error("Embeddings have inconsistent dimensions.")
             return []
 
-        # Build VALUES placeholders for each query vector: ($1::vector(dim)), ($2::vector(dim)), ...
-        n = len(query_embeddings)
-        values_sql = ", ".join(f"(${i+1}::vector({emb_dim}))" for i in range(n))
-
-        # Next placeholders for user_id, repo_id, limit:
-        p_user   = n + 1
-        p_repo   = n + 2
-        p_limit  = n + 3
-
-        sql = f"""
-            WITH queries(qvec) AS (
-              VALUES {values_sql}
-            ),
-            scored AS (
-              SELECT
-                c.id,
-                c.created_at,
-                1 - (c.embedding <=> q.qvec) AS sim
-              FROM public.code_chunks AS c
-              CROSS JOIN queries AS q
-              WHERE c.user_id = ${p_user}
-                AND c.repo_id = ${p_repo}
-                -- OPTIONAL, ENABLE IF YOU WANT TO REMOVE THE LOW RANKED ONES
-                -- AND (1 - (c.embedding <=> q.qvec)) >= 0.20
-            ),
-            agg AS (
-              SELECT
-                id,
-                MAX(created_at) AS created_at,
-                SUM(sim)        AS fusion_score,
-                MAX(sim)        AS max_sim
-              FROM scored
-              GROUP BY id
-            )
-            SELECT
-              c.id,
-              c.file_name,
-              c.file_path,
-              c.content,
-              a.created_at,
-              a.fusion_score,
-              a.max_sim
-            FROM agg a
-            JOIN public.code_chunks c ON c.id = a.id
-              -- for defensive clarity:
-              AND c.user_id = ${p_user}
-              AND c.repo_id = ${p_repo}
-            ORDER BY a.fusion_score DESC, a.max_sim DESC, a.created_at DESC
-            LIMIT ${p_limit};
-        """
         try:
-            async with PgVectorConnection("default") as conn:
-                params = [*query_embeddings, str(user_id), str(repo_id), int(limit)]
-                rows = await conn.fetch(sql, *params)
-                return [dict(r) for r in rows]
+            # Fetch all chunks for the user/repo first (or use $vectorSearch if MongoDB 7.1+)
+            chunks_cursor = CodeChunks.find(
+                CodeChunks.user_id == str(user_id),
+                CodeChunks.repo_id == str(repo_id)
+            )
+            chunks = await chunks_cursor.to_list()
+
+            results = []
+            for chunk in chunks:
+                sims = []
+                for qvec in query_embeddings:
+                    # cosine similarity
+                    c_emb = np.array(chunk.embedding, dtype=float)
+                    q_emb = np.array(qvec, dtype=float)
+                    sim = float(np.dot(c_emb, q_emb) / (np.linalg.norm(c_emb) * np.linalg.norm(q_emb) + 1e-10))
+                    sims.append(sim)
+
+                fusion_score = sum(sims)
+                max_sim = max(sims)
+
+                results.append({
+                    "id": str(chunk.id),
+                    "file_name": chunk.file_name,
+                    "file_path": chunk.file_path,
+                    "content": chunk.content,
+                    "created_at": chunk.created_at,
+                    "fusion_score": fusion_score,
+                    "max_sim": max_sim
+                })
+
+            # Sort by fusion_score DESC, max_sim DESC, created_at DESC
+            results.sort(key=lambda x: (-x["fusion_score"], -x["max_sim"], -x["created_at"].timestamp()))
+            return results[:limit]
+
         except Exception:
             logging.exception("Multi-query similarity search failed")
             return []
