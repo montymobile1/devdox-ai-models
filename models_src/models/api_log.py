@@ -18,4 +18,7 @@ class ApiLog(Model):
 	
 	request_body: list | dict | None = fields.JSONField(default=None)
 	response_body: list | dict | None = fields.JSONField(default=None)
-
+	
+	class Meta:
+		table = "api_log"
+		table_description = "Table for storing api logs"
