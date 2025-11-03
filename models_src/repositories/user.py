@@ -100,7 +100,14 @@ class TortoiseUserBackend(IUserStore):
         )
 
         return mapped_model_to_dto
-
+    
+    async def get_encryption_salt(self, user_id: str) -> str | None:
+        if not user_id or not user_id.strip():
+            return None
+        
+        instance = await self.model.get(user_id=user_id)
+        return instance.encryption_salt
+    
     async def increment_token_usage(self, user_id: str, tokens_used: int) -> int:
         
         now = datetime.datetime.now(datetime.timezone.utc)
