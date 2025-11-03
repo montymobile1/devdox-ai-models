@@ -24,7 +24,10 @@ class IUserStore(Protocol):
 
     @abstractmethod
     async def find_by_user_id(self, user_id: str) -> Optional[UserResponseDTO]: ...
-
+    
+    @abstractmethod
+    async def get_encryption_salt(self, user_id: str) -> str | None: ...
+    
     @abstractmethod
     async def save(self, user_model: UserRequestDTO) -> UserResponseDTO: ...
 
