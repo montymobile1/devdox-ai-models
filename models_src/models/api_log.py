@@ -1,20 +1,21 @@
+import datetime
 import uuid
 
 from tortoise import fields, Model
 
 
 class ApiLog(Model):
-	id = fields.UUIDField(primary_key=True, default=uuid.uuid4)
+	id: uuid.UUID = fields.UUIDField(primary_key=True, default=uuid.uuid4)
 	
-	operation_id = fields.CharField(max_length=128)
-	path = fields.CharField(max_length=2048)
-	method = fields.CharField(max_length=8)
-	user_id = fields.CharField(max_length=255)
+	operation_id: str = fields.CharField(max_length=128)
+	path: str = fields.CharField(max_length=2048)
+	method: str = fields.CharField(max_length=8)
+	user_id: str = fields.CharField(max_length=255)
 	
-	request_received_at = fields.DatetimeField()
+	request_received_at: datetime.datetime = fields.DatetimeField()
 	
-	process_time_ms = fields.IntField()
+	process_time_ms: int = fields.IntField()
 	
-	request_body = fields.JSONField()
-	response_body = fields.JSONField()
+	request_body: list | dict | None = fields.JSONField(default=None)
+	response_body: list | dict | None = fields.JSONField(default=None)
 

@@ -16,8 +16,8 @@ class ApiLogResponseDTO:
 	
 	process_time_ms: int | None = None
 	
-	request_body: dict | None = None
-	response_body: dict | None = None
+	request_body: dict | list | None = None
+	response_body: dict | list | None = None
 
 
 @dataclass
@@ -31,5 +31,5 @@ class ApiLogRequestDTO:
 	
 	process_time_ms: int
 	
-	request_body: dict
-	response_body: dict
+	request_body: dict | list | None
+	response_body: dict | list | None
