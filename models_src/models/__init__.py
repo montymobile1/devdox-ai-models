@@ -7,6 +7,8 @@ from .tortoise_orm.queue_job_claim_registry import (
     QueueProcessingRegistry,
     QRegistryStat,
 )
+from .tortoise_orm.api_log import ApiLog
+
 
 __all__ = [
     "GitLabel",
@@ -16,4 +18,5 @@ __all__ = [
     "CodeChunks",
     "QueueProcessingRegistry",
     "QRegistryStat",
+    "ApiLog"
 ]
