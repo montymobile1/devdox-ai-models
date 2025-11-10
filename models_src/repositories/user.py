@@ -2,12 +2,13 @@ from abc import abstractmethod
 from dataclasses import asdict
 from typing import Optional, Protocol
 
+from beanie.odm.operators.update.general import Inc
 from tortoise.expressions import F
 
 from models_src.dto.user import UserRequestDTO, UserResponseDTO
-from models_src.dto.utils import TortoiseModelMapper
+from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.models import User
-
+from models_src.models.user_document import User as UserDocument
 
 class IUserStore(Protocol):
 
@@ -60,3 +61,40 @@ class TortoiseUserStore(IUserStore):
         return await self.model.filter(user_id=user_id).update(
             token_used=F("token_used") + tokens_used
         )
+
+
+class BeanieUserStore(IUserStore):
+    model = UserDocument
+    model_mapper = BeanieModelMapper
+    
+    def __init__(self):
+        """
+        Have to add this as an empty __init__ to override it, because when using it with Depends(),
+        FastAPI dependency mechanism will automatically assume its
+        ```
+        def __init__(self, *args, **kwargs):
+            pass
+        ```
+        Causing unneeded behavior.
+        """
+        pass
+
+    async def save(self, user_model: UserRequestDTO) -> UserResponseDTO:
+        doc = self.model(**asdict(user_model))
+        data = await doc.create()
+        return self.model_mapper.map_document_to_dataclass(data, UserResponseDTO)
+
+    async def find_by_user_id(self, user_id: str) -> Optional[UserResponseDTO]:
+        if not user_id or not user_id.strip():
+            return None
+        doc = await self.model.find(self.model.user_id == user_id).first_or_none()
+        return self.model_mapper.map_document_to_dataclass(doc, UserResponseDTO)
+
+    async def increment_token_usage(self, user_id: str, tokens_used: int) -> int:
+        
+        if (not user_id or not user_id.strip()) or not tokens_used:
+            return -1
+        result = await self.model.find(self.model.user_id == user_id).update(
+            Inc({self.model.token_used: tokens_used})
+        )
+        return result.matched_count
