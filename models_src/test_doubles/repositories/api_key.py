@@ -144,7 +144,7 @@ class FakeApiKeyStore(FakeBase, IApiKeyStore):
 
         return discovered_result
 
-    async def update_last_used_by_id(self, id: str) -> int:
+    async def update_last_used_by_id(self, id: str, last_used_at:datetime=None) -> int:
 
         self._before(self.update_last_used_by_id, id=id)
 
@@ -161,7 +161,7 @@ class FakeApiKeyStore(FakeBase, IApiKeyStore):
             for i in val:
                 if i.id == uuid.UUID(id):
                     updated += 1
-                    i.last_used_at = datetime.datetime.now(datetime.timezone.utc)
+                    i.last_used_at = last_used_at or datetime.datetime.now(datetime.timezone.utc)
 
         return updated
 
@@ -197,5 +197,5 @@ class StubApiKeyStore(StubPlanMixin, IApiKeyStore):
     ) -> Optional[APIKeyResponseDTO]:
         return await self._stub(self.find_by_active_api_key, api_key=api_key, is_active=is_active)
 
-    async def update_last_used_by_id(self, id: str) -> int:
-        return await self._stub(self.update_last_used_by_id, id=id)
+    async def update_last_used_by_id(self, id: str, last_used_at:datetime=None) -> int:
+        return await self._stub(self.update_last_used_by_id, id=id, last_used_at=last_used_at)
