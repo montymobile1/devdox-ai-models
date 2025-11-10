@@ -54,5 +54,3 @@ class QueueProcessingRegistry(TimestampAuditMixin, Document):
 
     def __str__(self) -> str:
         return f"QueueProcessingRegistry(message_id={self.message_id}, status={self.status}, queue={self.queue_name})"
-
-

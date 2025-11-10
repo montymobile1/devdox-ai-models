@@ -1,34 +1,39 @@
 import logging
+import math
 import uuid
 from abc import abstractmethod
 from dataclasses import asdict
-from typing import Any, Dict, List, Protocol, Union
+from typing import Any, Dict, List, Protocol
+
+import numpy as np
+from pymongo.errors import OperationFailure
 
 from models_src.dto.code_chunks import CodeChunksRequestDTO, CodeChunksResponseDTO
-from models_src.dto.utils import TortoiseModelMapper
+from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.models import CodeChunks
-import numpy as np
+from models_src.models.code_chunks_document import CodeChunks as CodeChunksDocument, CodeChunksProjection, \
+    CodeChunksSearchProjection
 from models_src.models.db import PgVectorConnection
 
 
 class ICodeChunksStore(Protocol):
-
+    
     @abstractmethod
     async def save(
-        self, create_model: CodeChunksRequestDTO
+            self, create_model: CodeChunksRequestDTO
     ) -> CodeChunksResponseDTO: ...
-
+    
     @abstractmethod
     async def bulk_save(self, create_model: list[CodeChunksRequestDTO]) -> List[CodeChunksResponseDTO]: ...
-
+    
     @abstractmethod
     async def find_all_by_repo_id_with_limit(
-        self, repo_id: str, limit: int = 100
+            self, repo_id: str, limit: int = 100
     ) -> List[CodeChunksResponseDTO]: ...
-
+    
     @abstractmethod
     async def get_repo_file_chunks(self,  user_id : str | uuid.UUID , repo_id: str | uuid.UUID,  file_name:str="readme") -> List[dict]: ...
-
+    
     @abstractmethod
     async def get_user_repo_chunks_multi(
             self,
@@ -41,10 +46,10 @@ class ICodeChunksStore(Protocol):
 
 
 class TortoiseCodeChunksStore(ICodeChunksStore):
-
+    
     model = CodeChunks
     model_mapper = TortoiseModelMapper
-
+    
     def __init__(self):
         """
         Have to add this as an empty __init__ to override it, because when using it with Depends(),
@@ -56,29 +61,29 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
         Causing unneeded behavior.
         """
         pass
-
+    
     async def save(self, create_model: CodeChunksRequestDTO) -> CodeChunksResponseDTO:
         data = await self.model.create(**asdict(create_model))
         return self.model_mapper.map_model_to_dataclass(data, CodeChunksResponseDTO)
-
+    
     async def bulk_save(self, create_model: list[CodeChunksRequestDTO]) -> List[CodeChunksResponseDTO]:
         objs = [
             self.model(**asdict(r))
             for r in create_model
         ]
-
-        _ = await self.model.insert_many(objs)
-
+        
+        _ = await self.model.bulk_create(objs, batch_size=1000)
+        
         return self.model_mapper.map_models_to_dataclasses_list(objs, CodeChunksResponseDTO)
-
+    
     async def find_all_by_repo_id_with_limit(
-        self, repo_id: str, limit: int = 100
+            self, repo_id: str, limit: int = 100
     ) -> List[CodeChunksResponseDTO]:
         raw_data = await self.model.filter(repo_id=repo_id).limit(limit).all()
         return self.model_mapper.map_models_to_dataclasses_list(
             raw_data, CodeChunksResponseDTO
         )
-
+    
     async def get_repo_file_chunks(self,  user_id : str | uuid.UUID , repo_id: str | uuid.UUID,  file_name:str="readme") -> List[dict]:
         """Return chunks of a specific file"""
         try:
@@ -87,7 +92,7 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
         except Exception:
             logging.exception(f"{self.get_repo_file_chunks.__name__} failed")
             return []  # Return empty list on error
-
+    
     async def get_user_repo_chunks_multi(
             self,
             user_id: str | uuid.UUID,
@@ -95,50 +100,229 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
             query_embeddings: List[List[float]],
             emb_dim: int,
             limit: int = 10,
-        ) -> List[Dict[str, Any]]:
-        if not query_embeddings or not user_id or not repo_id or limit <= 0:
+    ) -> List[Dict[str, Any]]:
+        """
+        Multi-query:
+        - Accepts multiple query vectors.
+        - Computes similarity per (chunk, query).
+        - Fuses per-chunk via SUM(sim) as fusion_score.
+        - Orders by fusion_score, then max_sim, then created_at.
+        """
+        if not repo_id or not user_id or limit <= 0 or not query_embeddings:
             return []
-
+        
         # Guard: consistent dimensions
         if any(len(v) != emb_dim for v in query_embeddings):
             logging.error("Embeddings have inconsistent dimensions.")
             return []
-
-        try:
-            # Fetch all chunks for the user/repo first (or use $vectorSearch if MongoDB 7.1+)
-            chunks_cursor = CodeChunks.find(
-                CodeChunks.user_id == str(user_id),
-                CodeChunks.repo_id == str(repo_id)
+        
+        # Build VALUES placeholders for each query vector: ($1::vector(dim)), ($2::vector(dim)), ...
+        n = len(query_embeddings)
+        values_sql = ", ".join(f"(${i+1}::vector({emb_dim}))" for i in range(n))
+        
+        # Next placeholders for user_id, repo_id, limit:
+        p_user   = n + 1
+        p_repo   = n + 2
+        p_limit  = n + 3
+        
+        sql = f"""
+            WITH queries(qvec) AS (
+              VALUES {values_sql}
+            ),
+            scored AS (
+              SELECT
+                c.id,
+                c.created_at,
+                1 - (c.embedding <=> q.qvec) AS sim
+              FROM public.code_chunks AS c
+              CROSS JOIN queries AS q
+              WHERE c.user_id = ${p_user}
+                AND c.repo_id = ${p_repo}
+                -- OPTIONAL, ENABLE IF YOU WANT TO REMOVE THE LOW RANKED ONES
+                -- AND (1 - (c.embedding <=> q.qvec)) >= 0.20
+            ),
+            agg AS (
+              SELECT
+                id,
+                MAX(created_at) AS created_at,
+                SUM(sim)        AS fusion_score,
+                MAX(sim)        AS max_sim
+              FROM scored
+              GROUP BY id
             )
-            chunks = await chunks_cursor.to_list()
-
-            results = []
-            for chunk in chunks:
-                sims = []
-                for qvec in query_embeddings:
-                    # cosine similarity
-                    c_emb = np.array(chunk.embedding, dtype=float)
-                    q_emb = np.array(qvec, dtype=float)
-                    sim = float(np.dot(c_emb, q_emb) / (np.linalg.norm(c_emb) * np.linalg.norm(q_emb) + 1e-10))
-                    sims.append(sim)
-
-                fusion_score = sum(sims)
-                max_sim = max(sims)
-
-                results.append({
-                    "id": str(chunk.id),
-                    "file_name": chunk.file_name,
-                    "file_path": chunk.file_path,
-                    "content": chunk.content,
-                    "created_at": chunk.created_at,
-                    "fusion_score": fusion_score,
-                    "max_sim": max_sim
-                })
-
-            # Sort by fusion_score DESC, max_sim DESC, created_at DESC
-            results.sort(key=lambda x: (-x["fusion_score"], -x["max_sim"], -x["created_at"].timestamp()))
-            return results[:limit]
-
+            SELECT
+              c.id,
+              c.file_name,
+              c.file_path,
+              c.content,
+              a.created_at,
+              a.fusion_score,
+              a.max_sim
+            FROM agg a
+            JOIN public.code_chunks c ON c.id = a.id
+              -- for defensive clarity:
+              AND c.user_id = ${p_user}
+              AND c.repo_id = ${p_repo}
+            ORDER BY a.fusion_score DESC, a.max_sim DESC, a.created_at DESC
+            LIMIT ${p_limit};
+        """
+        try:
+            async with PgVectorConnection("default") as conn:
+                params = [*query_embeddings, str(user_id), str(repo_id), int(limit)]
+                rows = await conn.fetch(sql, *params)
+                return [dict(r) for r in rows]
         except Exception:
             logging.exception("Multi-query similarity search failed")
             return []
+
+class BeanieCodeChunksStore:
+    """
+    Beanie implementation for ICodeChunksStore (basic methods).
+    """
+
+    model = CodeChunksDocument
+    model_mapper = BeanieModelMapper
+
+    async def save(self, create_model: CodeChunksRequestDTO) -> CodeChunksResponseDTO:
+        """
+        Persist a single chunk. Pydantic validation (e.g., embedding length) happens
+        when instantiating the Document.
+        """
+        doc = self.model(**asdict(create_model))
+        saved = await doc.create()
+        return self.model_mapper.map_document_to_dataclass(saved, CodeChunksResponseDTO)
+
+    async def bulk_save(self, create_model: list[CodeChunksRequestDTO]) -> List[CodeChunksResponseDTO]:
+        """
+        Insert many in one go. Returns DTOs for the inserted docs.
+        """
+        if not create_model:
+            return []
+
+        docs = [self.model(**asdict(r)) for r in create_model]
+        
+        await self.model.insert_many(docs)
+        return self.model_mapper.map_documents_to_dataclasses_list(docs, CodeChunksResponseDTO)
+        
+
+    async def find_all_by_repo_id_with_limit(
+        self, repo_id: str, limit: int = 100
+    ) -> List[CodeChunksResponseDTO]:
+        """
+        Return newest-first by created_at, limited.
+        """
+        if not repo_id or limit <= 0:
+            return []
+
+        docs = await (
+            self.model.find(self.model.repo_id == str(repo_id))
+            .sort(-self.model.created_at)
+            .limit(int(limit))
+            .to_list()
+        )
+        return self.model_mapper.map_documents_to_dataclasses_list(docs, CodeChunksResponseDTO)
+    
+    async def get_repo_file_chunks(
+            self,
+            user_id: str | uuid.UUID,
+            repo_id: str | uuid.UUID,
+            file_name: str = "readme",
+    ) -> List[dict]:
+        """
+        Return only {"content": ...} dicts for a specific user's repo,
+        case-insensitive contains on file_name. Newest first.
+        """
+        try:
+            uid = str(user_id)
+            rid = str(repo_id)
+            if not uid or not rid or not file_name:
+                return []
+            
+            # Case-insensitive substring match on file_name
+            docs = await (
+                self.model.find(
+                    {
+                        "user_id": uid,
+                        "repo_id": rid,
+                        "file_name": {"$regex": file_name, "$options": "i"},
+                    }
+                )
+                .sort(-self.model.created_at)
+                .project(CodeChunksProjection).to_list()
+            )
+            
+            list_of_dict_docs = [val.model_dump() for val in docs]
+            
+            return list_of_dict_docs
+        except Exception:
+            logging.exception(f"{self.get_repo_file_chunks.__name__} failed")
+            return []
+    
+    async def get_user_repo_chunks_multi(
+            self,
+            user_id: str | uuid.UUID,
+            repo_id: str | uuid.UUID,
+            query_embeddings: List[List[float]],
+            emb_dim: int,
+            limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """
+        Multi-query search (Python/NumPy):
+          - Normalize queries once (unit vectors with zero-protection).
+          - For each chunk, compute dot against each unit query (no chunk normalization).
+          - fusion_score = SUM of sims; max_sim = max of sims.
+          - Sort: fusion_score desc, then max_sim desc, then created_at desc.
+        """
+        if not query_embeddings or not user_id or not repo_id or limit <= 0:
+            return []
+        
+        # dimension guard (match your behavior)
+        if any(len(v) != emb_dim for v in query_embeddings):
+            logging.error("Embeddings have inconsistent dimensions.")
+            return []
+        
+        # Normalize queries (protect zeros with isclose)
+        EPS = 1e-12
+        queries = np.asarray(query_embeddings, dtype=np.float32)  # (Q, D)
+        q_norms = np.linalg.norm(queries, axis=1)                 # (Q,)
+        q_norms[np.isclose(q_norms, 0.0, rtol=1e-9, atol=1e-9)] = 1.0
+        queries_unit = queries / q_norms[:, None]                 # (Q, D)
+        
+        # Fetch only the fields we need (bypasses full model validation)
+        docs = await (
+            self.model
+            .find(self.model.user_id == str(user_id), self.model.repo_id == str(repo_id))
+            .project(CodeChunksSearchProjection)
+            .to_list()
+        )
+        
+        ranked: List[Dict[str, Any]] = []
+        for doc in docs:
+            emb = doc.embedding
+            if not emb or len(emb) != emb_dim:
+                continue
+            
+            chunk_vec = np.asarray(emb, dtype=np.float32)  # (D,)
+            chunk_norm = float(np.linalg.norm(chunk_vec))
+            if chunk_norm <= EPS:
+                # zero vector -> meaningless similarity
+                continue
+            
+            # Dot against unit queries (no chunk normalization)
+            sims = chunk_vec @ queries_unit.T  # (Q,)
+            
+            fusion_score = float(sims.sum())
+            max_sim = float(sims.max()) if sims.size else 0.0
+            
+            ranked.append({
+                "id": doc.id,  # UUID
+                "file_name": doc.file_name,
+                "file_path": doc.file_path,
+                "content": doc.content,
+                "created_at": doc.created_at,
+                "fusion_score": fusion_score,
+                "max_sim": max_sim,
+            })
+        
+        ranked.sort(key=lambda r: (r["fusion_score"], r["max_sim"], r["created_at"]), reverse=True)
+        return ranked[: int(limit)]

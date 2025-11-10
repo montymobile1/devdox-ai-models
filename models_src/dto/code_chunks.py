@@ -21,6 +21,7 @@ class CodeChunksResponseDTO:
     embedding: Optional[Any] = None
     metadata: Optional[dict] = None
     created_at: Optional[datetime.datetime] = None
+    updated_at: Optional[datetime.datetime] = None
 
 
 @dataclasses.dataclass
