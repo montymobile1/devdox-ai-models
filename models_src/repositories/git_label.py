@@ -1,15 +1,19 @@
+import re
 import uuid
 from abc import abstractmethod
 from dataclasses import asdict
 from typing import Collection, Dict, List, Optional, Protocol, Union
 from uuid import UUID
 
+from beanie.odm.operators.find.comparison import In
+from pymongo.errors import DuplicateKeyError
 from tortoise.exceptions import IntegrityError
 
 from models_src.dto.git_label import GitLabelRequestDTO, GitLabelResponseDTO
-from models_src.dto.utils import TortoiseModelMapper
+from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.exceptions.utils import GitLabelErrors, internal_error
 from models_src.models import GitLabel
+from models_src.models.git_label_document import GitLabel as GitLabelDocument, GitLabelProjection
 
 
 class ILabelStore(Protocol):
@@ -78,8 +82,7 @@ class TortoiseGitLabelStore(ILabelStore):
     ) -> List[Dict]:
         if not token_ids:
             return []
-        return await self.model.find({"_id": {"$in": token_ids}}).to_list()
-
+        return await self.model.filter(id__in=token_ids).values("id", "git_hosting")
 
     async def find_by_token_id_and_user(
         self, token_id: str, user_id: str
@@ -87,21 +90,17 @@ class TortoiseGitLabelStore(ILabelStore):
         if not token_id or not token_id.strip() or not user_id or not user_id.strip():
             return None
 
-        model = await self.model.find_one(
-            self.model.id == token_id, self.model.user_id == user_id
-        )
-
+        model = await self.model.filter(id=token_id, user_id=user_id).first()
         return self.model_mapper.map_model_to_dataclass(model, GitLabelResponseDTO)
 
     def __find_by_user_id_query(self, user_id, git_hosting: Optional[str] = None):
         if not user_id:
             raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
 
-        filters = {"user_id": user_id}
-        if git_hosting:
-            filters["git_hosting"] = git_hosting
+        query = self.model.filter(user_id=user_id)
 
-        query = self.model.find(filters)
+        if git_hosting:
+            query = query.filter(git_hosting=git_hosting)
 
         return query
 
@@ -111,13 +110,11 @@ class TortoiseGitLabelStore(ILabelStore):
         query = self.__find_by_user_id_query(user_id, git_hosting)
 
         git_labels = (
-            await query
-            .sort("-created_at")  # Beanie uses .sort instead of .order_by
-            .skip(offset * limit)  # skip instead of offset
+            await query.order_by("-created_at")
+            .offset(offset * limit)
             .limit(limit)
-            .to_list()  # async list conversion
+            .all()
         )
-
 
         return self.model_mapper.map_models_to_dataclasses_list(
             git_labels, GitLabelResponseDTO
@@ -134,17 +131,8 @@ class TortoiseGitLabelStore(ILabelStore):
 
         if not label or not label.strip():
             raise internal_error(**GitLabelErrors.MISSING_LABEL.value)
-
-
-        query = self.model.find(self.model.user_id == user_id,
-            {
-                "label": {
-                    "$regex": label,
-                    "$options": "i"
-                }
-            }
-
-        )
+        
+        query = self.model.filter(user_id=user_id, label__icontains=label)
 
         return query
 
@@ -159,12 +147,11 @@ class TortoiseGitLabelStore(ILabelStore):
 
         query = self.__find_by_user_id_and_label_query(user_id, label)
 
-
         git_labels = (
-            await query.sort("-created_at")
-            .skip(offset * limit)
+            await query.order_by("-created_at")
+            .offset(offset * limit)
             .limit(limit)
-          .to_list()
+            .all()
         )
 
         return self.model_mapper.map_models_to_dataclasses_list(
@@ -202,3 +189,145 @@ class TortoiseGitLabelStore(ILabelStore):
         ).first()
 
         return self.model_mapper.map_model_to_dataclass(raw_data, GitLabelResponseDTO)
+
+class BeanieGitLabelStore(ILabelStore):
+    model = GitLabelDocument
+    model_mapper = BeanieModelMapper
+    
+    def __init__(self):
+        """
+        Have to add this as an empty __init__ to override it, because when using it with Depends(),
+        FastAPI dependency mechanism will automatically assume its
+        ```
+        def __init__(self, *args, **kwargs):
+                pass
+        ```
+        Causing unneeded behavior.
+        """
+        pass
+
+    async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO:
+        try:
+            doc = self.model(**asdict(label_model))
+            saved = await doc.create()
+            return self.model_mapper.map_document_to_dataclass(saved, GitLabelResponseDTO)
+        except DuplicateKeyError as e:
+            # unique compound index violation
+            raise internal_error(**GitLabelErrors.GIT_LABEL_ALREADY_EXISTS.value) from e
+
+    async def find_git_hostings_by_ids(
+        self, token_ids: Collection[Union[str, UUID]]
+    ) -> List[Dict]:
+        if not token_ids:
+            return []
+        
+        uuids: List[UUID] = []
+        for t in token_ids:
+            if isinstance(t, UUID):
+                uuids.append(t)
+            else:
+                try:
+                    uuids.append(UUID(str(t)))
+                except Exception:
+                    # ignore unparseable ids
+                    continue
+
+        if not uuids:
+            return []
+
+        # project only needed fields
+        docs = await self.model.find(In(self.model.id, uuids)).project(GitLabelProjection).to_list()
+        
+        
+        return [{"id": d.id, "git_hosting": d.git_hosting} for d in docs]
+
+    async def find_by_token_id_and_user(
+        self, token_id: str, user_id: str
+    ) -> GitLabelResponseDTO | None:
+        if not token_id or not token_id.strip() or not user_id or not user_id.strip():
+            return None
+        try:
+            uuid_id = UUID(token_id)
+        except ValueError:
+            return None
+
+        doc = await self.model.find(
+            self.model.id == uuid_id, self.model.user_id == user_id
+        ).first_or_none()
+        return self.model_mapper.map_document_to_dataclass(doc, GitLabelResponseDTO)
+
+    async def find_by_id_and_user_id_and_git_hosting(
+        self, id: str, user_id: str, git_hosting: str
+    ) -> Optional[GitLabelResponseDTO]:
+        try:
+            uuid_id = UUID(id)
+        except ValueError:
+            return None
+
+        doc = await self.model.find(
+            self.model.id == uuid_id,
+            self.model.user_id == user_id,
+            self.model.git_hosting == git_hosting,
+        ).first_or_none()
+        return self.model_mapper.map_document_to_dataclass(doc, GitLabelResponseDTO)
+
+    def __find_by_user_id_query(self, user_id: str, git_hosting: Optional[str] = None):
+        if not user_id or not user_id.strip():
+            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
+        q = self.model.find(self.model.user_id == user_id)
+        if git_hosting:
+            q = q.find(self.model.git_hosting == git_hosting)
+        return q
+
+    async def find_all_by_user_id(
+        self, offset, limit, user_id, git_hosting: Optional[str] = None
+    ) -> list[GitLabelResponseDTO]:
+        q = self.__find_by_user_id_query(user_id, git_hosting)
+        docs = await q.sort(-self.model.created_at).skip(offset * limit).limit(limit).to_list()
+        return self.model_mapper.map_documents_to_dataclasses_list(docs, GitLabelResponseDTO)
+
+    async def count_by_user_id(self, user_id, git_hosting: Optional[str] = None) -> int:
+        q = self.__find_by_user_id_query(user_id, git_hosting)
+        return await q.count()
+
+    def __find_by_user_id_and_label_query(self, user_id: str, label: str):
+        if not user_id or not user_id.strip():
+            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
+        if not label or not label.strip():
+            raise internal_error(**GitLabelErrors.MISSING_LABEL.value)
+
+        # case-insensitive contains
+        regex_label_filter = {"$regex": label, "$options": "i"}
+        
+        return self.model.find(
+            {
+                "label": regex_label_filter,
+                "user_id": user_id,
+            }
+        )
+
+    async def count_by_user_id_and_label(self, user_id, label: str) -> int:
+        q = self.__find_by_user_id_and_label_query(user_id, label)
+        return await q.count()
+
+    async def find_all_by_user_id_and_label(
+        self, offset, limit, user_id, label: str
+    ) -> list[GitLabelResponseDTO]:
+        q = self.__find_by_user_id_and_label_query(user_id, label)
+        docs = await q.sort(-self.model.created_at).skip(offset * limit).limit(limit).to_list()
+        return self.model_mapper.map_documents_to_dataclasses_list(docs, GitLabelResponseDTO)
+
+    async def delete_by_id_and_user_id(self, label_id: uuid.UUID, user_id: str) -> int:
+        if not label_id or not user_id or not user_id.strip():
+            return -1
+        # accept strings too (tests sometimes pass str)
+        try:
+            uuid_id = UUID(str(label_id))
+        except ValueError:
+            return -1
+
+        res = await self.model.find(
+            self.model.id == uuid_id, self.model.user_id == user_id
+        ).delete()
+        # Beanie returns a DeleteResult (PyMongo) in v2; fall back to 0 if None
+        return getattr(res, "deleted_count", 0) if res is not None else 0
