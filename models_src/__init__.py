@@ -20,12 +20,13 @@ from .models.repo_enums import QueueJobType, StatusTypes
 from .models.queue_job_claim_registry_constants import queue_processing_registry_one_claim_unique
 
 # repositories
-from .repositories.api_key import BeanieApiKeyStore, IApiKeyStore
-from .repositories.code_chunks import BeanieCodeChunksStore, ICodeChunksStore
-from .repositories.git_label import BeanieGitLabelStore, ILabelStore
-from .repositories.queue_job_claim_registry import BeanieQueueProcessingRegistryStore, IQueueProcessingRegistryStore
-from .repositories.repo import BeanieRepoStore, IRepoStore
-from .repositories.user import BeanieUserStore, IUserStore
+from .repositories.api_key import BeanieApiKeyStore, get_active_api_key_store, IApiKeyStore
+from .repositories.code_chunks import BeanieCodeChunksStore, get_active_code_chunks_store, ICodeChunksStore
+from .repositories.git_label import BeanieGitLabelStore, get_active_git_label_store, ILabelStore
+from .repositories.queue_job_claim_registry import BeanieQueueProcessingRegistryStore, get_active_qpr_store, \
+	IQueueProcessingRegistryStore
+from .repositories.repo import BeanieRepoStore, get_active_repo_store, IRepoStore
+from .repositories.user import BeanieUserStore, get_active_user_store, IUserStore
 
 # test_doubles
 from .test_doubles.repositories.api_key import FakeApiKeyStore, StubApiKeyStore
@@ -44,26 +45,28 @@ __all__ = [
 	
 	# api_key
     "APIKeyResponseDTO", "APIKeyRequestDTO", "FakeApiKeyStore", "StubApiKeyStore", "IApiKeyStore", "BeanieApiKeyStore",
+	"get_active_api_key_store",
 	
 	# code_chunks
 	"CodeChunksResponseDTO", "CodeChunksRequestDTO", "ICodeChunksStore", "BeanieCodeChunksStore", "FakeCodeChunksStore",
-	"StubCodeChunksStore",
+	"StubCodeChunksStore", "get_active_code_chunks_store",
 	
 	# git_lab
 	"GitLabelResponseDTO", "GitLabelRequestDTO", "ILabelStore", "BeanieGitLabelStore", "FakeGitLabelStore",
-	"StubGitLabelStore", "make_fake_git_label",
+	"StubGitLabelStore", "make_fake_git_label", "get_active_git_label_store",
 	
 	# queue_processing_registry
 	"QueueProcessingRegistryResponseDTO", "QueueProcessingRegistryRequestDTO", "QRegistryStat",
 	"IQueueProcessingRegistryStore", "BeanieQueueProcessingRegistryStore", "FakeQueueProcessingRegistryStore",
-	"StubQueueProcessingRegistryStore", "queue_processing_registry_one_claim_unique",
+	"StubQueueProcessingRegistryStore", "queue_processing_registry_one_claim_unique", "get_active_qpr_store",
 	
 	# repo
 	"GitHosting", "RepoResponseDTO", "RepoRequestDTO", "QueueJobType", "StatusTypes", "IRepoStore", "BeanieRepoStore",
-	"FakeRepoStore", "StubRepoStore",
+	"FakeRepoStore", "StubRepoStore", "get_active_repo_store",
 	
 	# user
 	"UserResponseDTO", "UserRequestDTO", "IUserStore", "BeanieUserStore", "FakeUserStore", "StubUserStore", "make_fake_user",
+	"get_active_user_store",
 	
 	# exceptions
 	"JobAlreadyClaimed", "exception_constants",

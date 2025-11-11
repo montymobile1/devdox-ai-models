@@ -331,3 +331,6 @@ class BeanieGitLabelStore(ILabelStore):
         ).delete()
         # Beanie returns a DeleteResult (PyMongo) in v2; fall back to 0 if None
         return getattr(res, "deleted_count", 0) if res is not None else 0
+    
+def get_active_git_label_store():
+    return BeanieGitLabelStore()

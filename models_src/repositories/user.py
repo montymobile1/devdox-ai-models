@@ -98,3 +98,6 @@ class BeanieUserStore(IUserStore):
             Inc({self.model.token_used: tokens_used})
         )
         return result.matched_count
+
+def get_active_user_store():
+    return BeanieUserStore()

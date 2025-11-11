@@ -231,4 +231,5 @@ class BeanieQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
             doc, QueueProcessingRegistryResponseDTO
         )
     
-    
+def get_active_qpr_store():
+    return BeanieQueueProcessingRegistryStore()

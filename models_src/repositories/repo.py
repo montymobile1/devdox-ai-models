@@ -363,3 +363,6 @@ class BeanieRepoStore(IRepoStore):
             self.model.user_id == user_id, self.model.repo_alias_name == repo_alias_name
         ).first_or_none()
         return self.model_mapper.map_document_to_dataclass(doc, RepoResponseDTO)
+
+def get_active_repo_store():
+    return BeanieRepoStore()

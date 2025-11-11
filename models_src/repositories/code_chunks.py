@@ -324,3 +324,6 @@ class BeanieCodeChunksStore:
         
         ranked.sort(key=lambda r: (r["fusion_score"], r["max_sim"], r["created_at"]), reverse=True)
         return ranked[: int(limit)]
+
+def get_active_code_chunks_store():
+    return BeanieCodeChunksStore()

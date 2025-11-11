@@ -226,3 +226,5 @@ class BeanieApiKeyStore(IApiKeyStore):
         )
         return result.matched_count
 
+def get_active_api_key_store():
+    return BeanieApiKeyStore()
