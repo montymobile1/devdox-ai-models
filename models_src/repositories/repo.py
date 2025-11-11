@@ -64,7 +64,10 @@ class IRepoStore(Protocol):
             total_chunks: int,
             total_embeddings: int,
     ) -> int: ...
-    
+
+    @abstractmethod
+    async def update_repo_parent_id(self, repo_id: str, parent_repo_id: str) -> None: ...
+
     @abstractmethod
     async def update_repo_system_reference_by_id(
             self, id: str, repo_system_reference: str
@@ -294,7 +297,22 @@ class TortoiseRepoBackend(IRepoStore):
     ) -> Optional[RepoResponseDTO]:
         raw_data = await self.model.filter(user_id=user_id, html_url=html_url).first()
         return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
-    
+
+    async def update_repo_parent_id(self, repo_id: str, parent_repo_id: str) -> None:
+        if (
+                not repo_id
+                or not repo_id.strip()
+                or not parent_repo_id
+                or not parent_repo_id.strip()
+        ):
+            return -1
+
+        updated_count=  await self.model.filter(id=repo_id).update(
+                parent_repo_id=parent_repo_id
+            )
+
+        return updated_count
+
     async def update_analysis_metadata_by_id(
             self,
             id: str,

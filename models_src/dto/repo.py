@@ -44,10 +44,10 @@ class RepoResponseDTO:
     repo_author_name: Optional[str] = None
     repo_author_email: Optional[str] = None
     total_embeddings: Optional[int] = None
+    repo_parent_repo_id: Optional[List[str]] = None
 
 @dataclass
 class RepoRequestDTO:
-
     user_id: str
     repo_id: str
     repo_name: str
@@ -77,3 +77,5 @@ class RepoRequestDTO:
     repo_system_reference: Optional[str] = None
     repo_author_name: Optional[str] = None
     repo_author_email: Optional[str] = None
+    repo_parent_repo_id: Optional[List[str]] = None
+

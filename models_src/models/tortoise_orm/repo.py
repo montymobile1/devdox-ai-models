@@ -107,6 +107,7 @@ class Repo(Model):
         max_length=255,
         description="The email address of the user who owns this repository",
     )
+    repo_parent_repo_id = fields.JSONField(null=True)  # Stores list of IDs
 
     class Meta:
         table = "repo"
