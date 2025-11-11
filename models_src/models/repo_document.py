@@ -43,7 +43,7 @@ class Repo(TimestampAuditMixin, Document):
     repo_updated_at: Optional[datetime] = Field(None, description="Repository last update from provider")
 
     # Additional metadata
-    language: Optional[dict] = Field(None, description="Primary programming languages")
+    language: Optional[list] = Field(None, description="Primary programming languages")
 
     size: Optional[int] = Field(
         default=None,
