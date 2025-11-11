@@ -1,7 +1,7 @@
 import datetime
 import uuid
 from dataclasses import asdict
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional
 from uuid import uuid4
 
 from models_src.dto.api_key import APIKeyRequestDTO, APIKeyResponseDTO

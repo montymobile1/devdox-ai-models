@@ -2,10 +2,10 @@ import uuid
 
 import pytest
 
+from models_src.models.queue_job_claim_registry_enums import QRegistryStat
 from models_src.dto.queue_job_claim_registry import (
     QueueProcessingRegistryRequestDTO,
 )
-from models_src.models import QRegistryStat
 from models_src.test_doubles.repositories.queue_job_claim_registry import (
     FakeQueueProcessingRegistryStore,
 )

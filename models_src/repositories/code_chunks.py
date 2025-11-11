@@ -1,16 +1,14 @@
 import logging
-import math
 import uuid
 from abc import abstractmethod
 from dataclasses import asdict
 from typing import Any, Dict, List, Protocol
 
 import numpy as np
-from pymongo.errors import OperationFailure
 
 from models_src.dto.code_chunks import CodeChunksRequestDTO, CodeChunksResponseDTO
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
-from models_src.models import CodeChunks
+from models_src.models.code_chunks import CodeChunks
 from models_src.models.code_chunks_document import CodeChunks as CodeChunksDocument, CodeChunksProjection, \
     CodeChunksSearchProjection
 from models_src.models.db import PgVectorConnection

@@ -3,6 +3,7 @@ MISSING_LABEL_LOG_MESSAGE = "label was None when trying to fetch Git labels"
 
 MISSING_USER_ID_LOG_MESSAGE = "user_id was None when trying to fetch Git labels"
 MISSING_API_KEY_USER_ID_LOG_MESSAGE = "user_id was None when trying to fetch Api Keys"
+MISSING_REPO_USER_ID_LOG_MESSAGE = "user_id was None when trying to fetch Repo"
 MISSING_USER_ID_TITLE = "MISSING_USER_ID"
 
 LABEL_ALREADY_EXISTS_TITLE = "GIT_LABEL_ALREADY_EXISTS"

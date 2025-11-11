@@ -1,14 +1,15 @@
 import datetime
 import uuid
 from dataclasses import asdict
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional
 from uuid import uuid4
 
+from models_src.models.queue_job_claim_registry_enums import QRegistryStat
 from models_src.dto.queue_job_claim_registry import (
     QueueProcessingRegistryRequestDTO,
     QueueProcessingRegistryResponseDTO,
 )
-from models_src.models import QRegistryStat
+
 from models_src.repositories.queue_job_claim_registry import (
     IQueueProcessingRegistryStore,
 )

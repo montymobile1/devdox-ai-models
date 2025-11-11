@@ -5,6 +5,9 @@ from dataclasses import asdict
 from typing import Optional, Protocol
 
 from beanie.odm.operators.update.general import Set
+
+from models_src.models.queue_job_claim_registry import QueueProcessingRegistry
+from models_src.models.queue_job_claim_registry_enums import QRegistryStat
 from pymongo.errors import DuplicateKeyError
 
 from models_src.dto.queue_job_claim_registry import (
@@ -13,9 +16,9 @@ from models_src.dto.queue_job_claim_registry import (
 )
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.exceptions.local_exception import JobAlreadyClaimed
-from models_src.models import QRegistryStat, QueueProcessingRegistry
 from models_src.models.queue_job_claim_registry_document import queue_processing_registry_one_claim_unique, \
     QueueProcessingRegistry as QueueProcessingRegistryDocument
+
 
 class IQueueProcessingRegistryStore(Protocol):
 

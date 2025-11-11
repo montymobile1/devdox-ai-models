@@ -12,7 +12,7 @@ from tortoise.exceptions import IntegrityError
 from models_src.dto.git_label import GitLabelRequestDTO, GitLabelResponseDTO
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.exceptions.utils import GitLabelErrors, internal_error
-from models_src.models import GitLabel
+from models_src.models.git_label import GitLabel
 from models_src.models.git_label_document import GitLabel as GitLabelDocument, GitLabelProjection
 
 

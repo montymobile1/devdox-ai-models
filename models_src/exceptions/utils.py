@@ -58,6 +58,12 @@ class RepoErrors(Enum):
         "log_message": REPO_ALREADY_EXISTS_MESSAGE,
         "log_level": logging.ERROR,
     }
+    
+    MISSING_USER_ID = {
+        "error_type": MISSING_USER_ID_TITLE,
+        "log_message": MISSING_API_KEY_USER_ID_LOG_MESSAGE,
+    }
+
 
 
 class ApiKeysErrors(Enum):

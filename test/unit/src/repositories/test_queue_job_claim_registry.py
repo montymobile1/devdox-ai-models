@@ -2,7 +2,7 @@ import pytest
 import datetime as dt
 from unittest.mock import MagicMock, AsyncMock
 
-from models_src.models import QRegistryStat
+from models_src.models.queue_job_claim_registry_enums import QRegistryStat
 from models_src.dto.queue_job_claim_registry import (
     QueueProcessingRegistryRequestDTO,
     QueueProcessingRegistryResponseDTO,

@@ -7,7 +7,7 @@ from tortoise.expressions import F
 
 from models_src.dto.user import UserRequestDTO, UserResponseDTO
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
-from models_src.models import User
+from models_src.models.user import User
 from models_src.models.user_document import User as UserDocument
 
 class IUserStore(Protocol):

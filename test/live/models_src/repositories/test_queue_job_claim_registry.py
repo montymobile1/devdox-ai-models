@@ -7,7 +7,7 @@ from pymongo.errors import DuplicateKeyError
 
 from models_src.dto.queue_job_claim_registry import QueueProcessingRegistryRequestDTO
 from models_src.exceptions.local_exception import JobAlreadyClaimed
-from models_src.models import QRegistryStat
+from models_src.models.queue_job_claim_registry_enums import QRegistryStat
 from models_src.repositories.queue_job_claim_registry import BeanieQueueProcessingRegistryStore
 
 

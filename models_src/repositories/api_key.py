@@ -9,8 +9,9 @@ from beanie.odm.operators.update.general import Set
 from models_src.dto.api_key import APIKeyRequestDTO, APIKeyResponseDTO
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.exceptions.utils import ApiKeysErrors, internal_error
-from models_src.models import APIKEY
+from models_src.models.api_key import APIKEY
 from models_src.models.api_key_document import APIKEY as APIKeyDocument
+
 
 class IApiKeyStore(Protocol):
 
@@ -224,3 +225,4 @@ class BeanieApiKeyStore(IApiKeyStore):
             Set({self.model.last_used_at: now})
         )
         return result.matched_count
+

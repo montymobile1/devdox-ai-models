@@ -11,8 +11,8 @@ from tortoise.exceptions import DoesNotExist, IntegrityError
 from models_src.dto.repo import RepoRequestDTO, RepoResponseDTO
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.exceptions.utils import internal_error, RepoErrors
-from models_src.models import Repo
 from models_src.models.repo_enums import StatusTypes
+from models_src.models.repo import Repo
 from models_src.models.repo_document import Repo as RepoDocument
 
 class IRepoStore(Protocol):

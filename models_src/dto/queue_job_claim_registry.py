@@ -3,7 +3,7 @@ import datetime
 import uuid
 from typing import Optional
 
-from models_src.models import QRegistryStat
+from models_src.models.queue_job_claim_registry_enums import QRegistryStat
 
 
 @dataclasses.dataclass

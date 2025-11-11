@@ -4,7 +4,7 @@ from typing import Optional
 
 import pymongo
 from beanie import Document
-from models_src.models import QRegistryStat
+from models_src.models.queue_job_claim_registry_enums import QRegistryStat
 from pydantic import Field
 
 from models_src.models.document_extra.timestamp import TimestampAuditMixin
