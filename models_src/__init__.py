@@ -1,3 +1,7 @@
+# config and settings
+from .configs.mongo_config import MongoConfig
+from .db_inits.beanie_init import init_via_uri
+
 # dto's
 from .dto.api_key import APIKeyRequestDTO, APIKeyResponseDTO
 from .dto.code_chunks import CodeChunksRequestDTO, CodeChunksResponseDTO
@@ -34,6 +38,9 @@ from .test_doubles.repositories.user import FakeUserStore, make_fake_user, StubU
 
 __all__ = [
 	
+	# Configuration and settings
+	"MongoConfig", "init_via_uri",
+	
 	# api_key
     "APIKeyResponseDTO", "APIKeyRequestDTO", "FakeApiKeyStore", "StubApiKeyStore", "IApiKeyStore", "BeanieApiKeyStore",
 	
@@ -58,7 +65,7 @@ __all__ = [
 	"UserResponseDTO", "UserRequestDTO", "IUserStore", "BeanieUserStore", "FakeUserStore", "StubUserStore", "make_fake_user",
 	
 	# exceptions
-	"JobAlreadyClaimed", "exception_constants"
+	"JobAlreadyClaimed", "exception_constants",
 	
 ]
 
