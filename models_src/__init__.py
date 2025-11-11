@@ -13,6 +13,7 @@ from .dto.user import UserRequestDTO, UserResponseDTO
 # exceptions
 from .exceptions.local_exception import JobAlreadyClaimed
 from .exceptions import exception_constants
+from .models.code_chunks_document import EMBED_DIM
 
 # models
 from .models.queue_job_claim_registry_enums import QRegistryStat
@@ -49,7 +50,7 @@ __all__ = [
 	
 	# code_chunks
 	"CodeChunksResponseDTO", "CodeChunksRequestDTO", "ICodeChunksStore", "BeanieCodeChunksStore", "FakeCodeChunksStore",
-	"StubCodeChunksStore", "get_active_code_chunks_store",
+	"StubCodeChunksStore", "get_active_code_chunks_store", "EMBED_DIM",
 	
 	# git_lab
 	"GitLabelResponseDTO", "GitLabelRequestDTO", "ILabelStore", "BeanieGitLabelStore", "FakeGitLabelStore",
