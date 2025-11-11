@@ -306,12 +306,19 @@ class TortoiseRepoBackend(IRepoStore):
                 or not parent_repo_id.strip()
         ):
             return -1
+        repo = await self.model.get(id=repo_id)
 
-        updated_count=  await self.model.filter(id=repo_id).update(
-                parent_repo_id=parent_repo_id
-            )
+        # Ensure we have a list
+        parent_ids = repo.repo_parent_repo_id or []
 
-        return updated_count
+        # Add new ID only if not present
+        if parent_repo_id not in parent_ids:
+            parent_ids.append(parent_repo_id)
+            repo.repo_parent_repo_id = parent_ids
+            await repo.save()
+
+
+        return len(parent_ids)
 
     async def update_analysis_metadata_by_id(
             self,
