@@ -4,12 +4,13 @@ from typing import Optional
 
 import pymongo
 from beanie import Document
+
+from models_src.models.queue_job_claim_registry_constants import queue_processing_registry_one_claim_unique
 from models_src.models.queue_job_claim_registry_enums import QRegistryStat
 from pydantic import Field
 
 from models_src.models.document_extra.timestamp import TimestampAuditMixin
 
-queue_processing_registry_one_claim_unique = "queue_processing_registry_message_id_idx"
 
 class QueueProcessingRegistry(TimestampAuditMixin, Document):
     """

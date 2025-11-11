@@ -17,6 +17,7 @@ from .exceptions import exception_constants
 # models
 from .models.queue_job_claim_registry_enums import QRegistryStat
 from .models.repo_enums import QueueJobType, StatusTypes
+from .models.queue_job_claim_registry_constants import queue_processing_registry_one_claim_unique
 
 # repositories
 from .repositories.api_key import BeanieApiKeyStore, IApiKeyStore
@@ -55,7 +56,7 @@ __all__ = [
 	# queue_processing_registry
 	"QueueProcessingRegistryResponseDTO", "QueueProcessingRegistryRequestDTO", "QRegistryStat",
 	"IQueueProcessingRegistryStore", "BeanieQueueProcessingRegistryStore", "FakeQueueProcessingRegistryStore",
-	"StubQueueProcessingRegistryStore",
+	"StubQueueProcessingRegistryStore", "queue_processing_registry_one_claim_unique",
 	
 	# repo
 	"GitHosting", "RepoResponseDTO", "RepoRequestDTO", "QueueJobType", "StatusTypes", "IRepoStore", "BeanieRepoStore",

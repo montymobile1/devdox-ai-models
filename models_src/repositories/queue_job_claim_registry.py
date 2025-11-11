@@ -16,8 +16,8 @@ from models_src.dto.queue_job_claim_registry import (
 )
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.exceptions.local_exception import JobAlreadyClaimed
-from models_src.models.queue_job_claim_registry_document import queue_processing_registry_one_claim_unique, \
-    QueueProcessingRegistry as QueueProcessingRegistryDocument
+from models_src.models.queue_job_claim_registry_document import QueueProcessingRegistry as QueueProcessingRegistryDocument
+from models_src.models.queue_job_claim_registry_constants import queue_processing_registry_one_claim_unique
 
 
 class IQueueProcessingRegistryStore(Protocol):
