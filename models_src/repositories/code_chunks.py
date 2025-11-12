@@ -209,7 +209,7 @@ class BeanieCodeChunksStore(ICodeChunksStore):
         """
         Return newest-first by created_at, limited.
         """
-        if not repo_id or limit <= 0:
+        if not repo_id or not repo_id.strip() or limit <= 0:
             return []
 
         docs = await (
@@ -271,7 +271,7 @@ class BeanieCodeChunksStore(ICodeChunksStore):
           - fusion_score = SUM of sims; max_sim = max of sims.
           - Sort: fusion_score desc, then max_sim desc, then created_at desc.
         """
-        if not query_embeddings or not user_id or not repo_id or limit <= 0:
+        if not query_embeddings or not user_id or (not isinstance(user_id, uuid.UUID) and not user_id.strip()) or not repo_id or (not isinstance(repo_id, uuid.UUID) and not repo_id.strip()) or limit <= 0:
             return []
         
         # dimension guard (match your behavior)

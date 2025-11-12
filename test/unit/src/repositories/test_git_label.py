@@ -11,7 +11,7 @@ from test.unit.common_test_tools.model_factories import make_gitlabel
 from test.unit.common_test_tools.qs_chain import make_qs_chain
 
 
-class TestFindGitHostingsByIds:
+class TestTortoiseFindGitHostingsByIds:
     @pytest.mark.asyncio
     async def test_empty_input_returns_empty_list(self, monkeypatch):
         """Empty input → empty list; no DB calls."""
@@ -39,7 +39,7 @@ class TestFindGitHostingsByIds:
         qs.values.assert_awaited_once_with("id", "git_hosting")
 
 
-class TestFindByTokenIdAndUser:
+class TestTortoiseFindByTokenIdAndUser:
     @pytest.mark.asyncio
     async def test_blank_inputs_return_none(self, monkeypatch):
         """Blank token_id or user_id → None, no DB calls."""
@@ -66,7 +66,7 @@ class TestFindByTokenIdAndUser:
         qs.first.assert_awaited_once()
 
 
-class TestFindAllByUserId:
+class TestTortoiseFindAllByUserId:
     @pytest.mark.asyncio
     async def test_blank_user_raises(self):
         """Blank user_id → repo raises its internal error."""
@@ -111,7 +111,7 @@ class TestFindAllByUserId:
         qs.filter.assert_called_once_with(git_hosting="github")
 
 
-class TestCountByUserId:
+class TestTortoiseCountByUserId:
     @pytest.mark.asyncio
     async def test_blank_user_raises(self):
         """Blank user_id → repo raises its internal error."""
@@ -139,7 +139,7 @@ class TestCountByUserId:
         qs.filter.assert_called_with(git_hosting="github")
 
 
-class TestFindAllByUserIdAndLabel:
+class TestTortoiseFindAllByUserIdAndLabel:
     @pytest.mark.asyncio
     async def test_blank_user_raises(self):
         """Blank user_id → internal error."""
@@ -174,7 +174,7 @@ class TestFindAllByUserIdAndLabel:
         qs.all.assert_awaited_once()
 
 
-class TestCountByUserIdAndLabel:
+class TestTortoiseCountByUserIdAndLabel:
     @pytest.mark.asyncio
     async def test_blank_user_raises(self):
         """Blank user_id → internal error."""
@@ -204,9 +204,9 @@ class TestCountByUserIdAndLabel:
         qs.count.assert_awaited_once()
 
 
-class TestSave:
+class TestTortoiseSave:
     @pytest.mark.asyncio
-    async def test_success_maps_instance(self, no_model_io, forbid_db, monkeypatch):
+    async def test_success_maps_instance(self, no_tortoise_model_io, forbid_tortoise_db, monkeypatch):
         """Create returns a real model instance; repo maps to DTO."""
         store = TortoiseGitLabelStore()
         model = MagicMock()
@@ -237,7 +237,7 @@ class TestSave:
             await store.save(req)
 
 
-class TestDeleteByIdAndUserId:
+class TestTortoiseDeleteByIdAndUserId:
     @pytest.mark.asyncio
     async def test_blank_inputs_return_minus1(self, monkeypatch):
         """Blank id or blank user → -1 and no DB calls."""
@@ -264,7 +264,7 @@ class TestDeleteByIdAndUserId:
         qs.delete.assert_awaited_once()
 
 
-class TestFindByIdAndUserIdAndGitHosting:
+class TestTortoiseFindByIdAndUserIdAndGitHosting:
     @pytest.mark.asyncio
     async def test_filters_on_class_and_maps(self, monkeypatch):
         """

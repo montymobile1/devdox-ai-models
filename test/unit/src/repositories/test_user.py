@@ -7,9 +7,9 @@ from test.unit.common_test_tools.model_factories import make_user
 from test.unit.common_test_tools.qs_chain import make_qs_chain
 
 
-class TestSave:
+class TestTortoiseSave:
     @pytest.mark.asyncio
-    async def test_save_returns_dto_with_real_model_instance(self, no_model_io, monkeypatch):
+    async def test_save_returns_dto_with_real_model_instance(self, no_tortoise_model_io, monkeypatch):
         """Saving a user should call model.create() and return a mapped DTO (no DB)."""
         store = TortoiseUserStore()
 
@@ -28,7 +28,7 @@ class TestSave:
         model.create.assert_awaited_once()
 
 
-class TestFindByUserId:
+class TestTortoiseFindByUserId:
     @pytest.mark.asyncio
     async def test_blank_input_returns_none(self, monkeypatch):
         """Blank user_id → None and no DB calls."""
@@ -59,7 +59,7 @@ class TestFindByUserId:
         qs.first.assert_awaited_once()
 
 
-class TestIncrementTokenUsage:
+class TestTortoiseIncrementTokenUsage:
     @pytest.mark.asyncio
     async def test_bad_inputs_return_minus1(self, monkeypatch):
         """Blank user_id or tokens_used == 0 → -1 and no DB work."""

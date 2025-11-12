@@ -11,7 +11,7 @@ from test.unit.common_test_tools.model_factories import make_repo
 from test.unit.common_test_tools.qs_chain import make_qs_chain
 
 
-class TestFindAllByUserId:
+class TestTortoiseFindAllByUserId:
     @pytest.mark.asyncio
     async def test_orders_desc_pages_and_maps(self, monkeypatch):
         """We ask for a user's repos; it filters, orders newest first, paginates, and returns DTOs."""
@@ -36,7 +36,7 @@ class TestFindAllByUserId:
         qs.all.assert_awaited_once()
 
 
-class TestCountByUserId:
+class TestTortoiseCountByUserId:
     @pytest.mark.asyncio
     async def test_counts_by_user(self, monkeypatch):
         """Count should just filter by user and call count()."""
@@ -52,7 +52,7 @@ class TestCountByUserId:
         qs.count.assert_awaited_once()
 
 
-class TestSave:
+class TestTortoiseSave:
     @pytest.mark.asyncio
     async def test_success_maps_instance(self, monkeypatch):
         """On success we map the created Repo model to a DTO."""
@@ -92,7 +92,7 @@ class TestSave:
             await store.save(req)
 
 
-class TestSaveContext:
+class TestTortoiseSaveContext:
     @pytest.mark.asyncio
     async def test_save_context_uses_class_symbol_and_maps(self, monkeypatch):
         """
@@ -110,7 +110,7 @@ class TestSaveContext:
         # we don't assert config since DTO doesn't expose it
 
 
-class TestGetById:
+class TestTortoiseGetById:
     @pytest.mark.asyncio
     async def test_success_maps_instance(self, monkeypatch):
         """get_by_id should return a DTO when the record exists."""
@@ -135,7 +135,7 @@ class TestGetById:
             await store.get_by_id("missing")
 
 
-class TestFindByRepoId:
+class TestTortoiseFindByRepoId:
     @pytest.mark.asyncio
     async def test_maps_when_found(self, monkeypatch):
         """filter(repo_id=...).first() is mapped to DTO."""
@@ -165,7 +165,7 @@ class TestFindByRepoId:
         qs.first.assert_awaited_once()
 
 
-class TestFindById_UsingClassSymbol:
+class TestTortoiseFindById_UsingClassSymbol:
     @pytest.mark.asyncio
     async def test_uses_class_filter_and_maps(self, monkeypatch):
         """Method calls Repo.filter(...).first() via class symbol; patch it."""
@@ -179,7 +179,7 @@ class TestFindById_UsingClassSymbol:
         fake_class.filter.assert_called_once_with(id="ID1")
 
 
-class TestFindByUserIdAndHtmlUrl:
+class TestTortoiseFindByUserIdAndHtmlUrl:
     @pytest.mark.asyncio
     async def test_filters_then_first_and_maps(self, monkeypatch):
         """Filter by (user_id, html_url), then first()."""
@@ -195,7 +195,7 @@ class TestFindByUserIdAndHtmlUrl:
         qs.first.assert_awaited_once()
 
 
-class TestUpdateAnalysisMetadataById:
+class TestTortoiseUpdateAnalysisMetadataById:
     @pytest.mark.asyncio
     async def test_bad_inputs_return_minus1(self):
         """Blank id or blank status -> -1."""
@@ -235,7 +235,7 @@ class TestUpdateAnalysisMetadataById:
         )
 
 
-class TestUpdateRepoSystemReferenceById:
+class TestTortoiseUpdateRepoSystemReferenceById:
     @pytest.mark.asyncio
     async def test_bad_inputs_return_minus1(self):
         """Blank id or blank reference -> -1."""
@@ -259,7 +259,7 @@ class TestUpdateRepoSystemReferenceById:
         qs.update.assert_awaited_once_with(repo_system_reference="auto-note")
 
 
-class TestFindByUserAndPath:
+class TestTortoiseFindByUserAndPath:
     @pytest.mark.asyncio
     async def test_class_symbol_filter_first_maps(self, monkeypatch):
         """find_by_user_and_path uses Repo.filter(...) via class symbol."""
@@ -273,7 +273,7 @@ class TestFindByUserAndPath:
         fake_class.filter.assert_called_once_with(user_id="u", relative_path="/x/y")
 
 
-class TestFindByUserAndAliasName:
+class TestTortoiseFindByUserAndAliasName:
     @pytest.mark.asyncio
     async def test_class_symbol_filter_first_maps(self, monkeypatch):
         """find_by_user_and_alias_name uses Repo.filter(...) via class symbol."""
@@ -288,7 +288,7 @@ class TestFindByUserAndAliasName:
 
 
 
-class TestFindByRepoIdUserId:
+class TestTortoiseFindByRepoIdUserId:
     """
     Test suite for the find_by_repo_id_user_id repository method.
     This method should filter by BOTH repo_id AND user_id to ensure
@@ -539,7 +539,7 @@ class TestFindByRepoIdUserId:
         assert not hasattr(qs.all, 'call_count') or qs.all.call_count == 0
 
 
-class TestFindByRepoIdUserIdIntegration:
+class TestTortoiseFindByRepoIdUserIdIntegration:
     """
     Additional integration-style tests that verify behavior
     in more complex scenarios.

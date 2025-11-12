@@ -1,7 +1,7 @@
 import pytest
 
 @pytest.fixture
-def no_model_io(monkeypatch):
+def no_tortoise_model_io(monkeypatch):
     from models_src.models.api_key import APIKEY
     from models_src.models.git_label import GitLabel
     from models_src.models.queue_job_claim_registry import QueueProcessingRegistry
@@ -20,7 +20,7 @@ def no_model_io(monkeypatch):
     yield
 
 @pytest.fixture
-def forbid_db(monkeypatch):
+def forbid_tortoise_db(monkeypatch):
     """
     Fail fast if any code attempts to get a DB connection.
     Helps keep unit tests honest (no accidental I/O).
@@ -32,7 +32,7 @@ def forbid_db(monkeypatch):
     yield
 
 @pytest.fixture
-def freeze_repo_time(monkeypatch):
+def freeze_tortoise_repo_time(monkeypatch):
     """
     Freeze datetime.now(tz=UTC) inside the API repo module so we can assert
     exact timestamps (used by update_last_used_by_id).

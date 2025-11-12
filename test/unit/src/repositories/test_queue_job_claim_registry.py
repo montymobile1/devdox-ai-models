@@ -29,7 +29,7 @@ def freeze_qreg_time(monkeypatch):
     return fixed
 
 
-class TestSave:
+class TestTortoiseSave:
     @pytest.mark.asyncio
     async def test_save_returns_dto_with_real_model_instance(self, monkeypatch):
         """Saving should call model.create() and hand back a DTO (no DB)."""
@@ -52,7 +52,7 @@ class TestSave:
         model.create.assert_awaited_once()
 
 
-class TestUpdateStatusOrMessageIdById:
+class TestTortoiseUpdateStatusOrMessageIdById:
     @pytest.mark.asyncio
     async def test_bad_inputs_return_minus1(self):
         """Blank id or missing status -> -1 and no DB work."""
@@ -95,7 +95,7 @@ class TestUpdateStatusOrMessageIdById:
         assert kwargs["updated_at"] == freeze_qreg_time
 
 
-class TestUpdateStepById:
+class TestTortoiseUpdateStepById:
     @pytest.mark.asyncio
     async def test_bad_inputs_return_minus1(self):
         """Blank id or blank step -> -1."""
@@ -121,7 +121,7 @@ class TestUpdateStepById:
         assert kwargs["updated_at"] == freeze_qreg_time
 
 
-class TestUpdateStatusAndStepById:
+class TestTortoiseUpdateStatusAndStepById:
     @pytest.mark.asyncio
     async def test_bad_inputs_return_minus1(self):
         """Any invalid input (blank id/status/step) -> -1."""
@@ -149,7 +149,7 @@ class TestUpdateStatusAndStepById:
         assert kwargs["updated_at"] == freeze_qreg_time
 
 
-class TestFindPreviousLatestMessageByMessageId:
+class TestTortoiseFindPreviousLatestMessageByMessageId:
     @pytest.mark.asyncio
     async def test_happy_path_filters_orders_then_first_and_maps(self, monkeypatch):
         """

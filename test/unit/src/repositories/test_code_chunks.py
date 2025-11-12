@@ -2,6 +2,8 @@ import uuid
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 
+from models_src.models.code_chunks_document import EMBED_DIM
+
 from models_src.dto.code_chunks import CodeChunksRequestDTO, CodeChunksResponseDTO
 from models_src.repositories.code_chunks import TortoiseCodeChunksStore
 import models_src.repositories.code_chunks as repo_mod  # to patch PgVectorConnection or class symbol when needed
@@ -9,7 +11,7 @@ from test.unit.common_test_tools.model_factories import make_codechunk
 from test.unit.common_test_tools.qs_chain import make_qs_chain
 
 
-class TestSave:
+class TestTortoiseSave:
     @pytest.mark.asyncio
     async def test_save_returns_dto_with_real_model_instance(self, monkeypatch):
         """model.create returns a real CodeChunks instance → repo maps to DTO."""
@@ -37,7 +39,7 @@ class TestSave:
         model.create.assert_awaited_once()
 
 
-class TestBulkSave:
+class TestTortoiseBulkSave:
 
     @pytest.mark.asyncio
     async def test_bulk_save_builds_instances_calls_bulk_create_and_maps(self, monkeypatch):
@@ -68,7 +70,7 @@ class TestBulkSave:
         assert {o.content for o in out} == {"chunk-0", "chunk-1"}
 
 
-class TestFindAllByRepoIdWithLimit:
+class TestTortoiseFindAllByRepoIdWithLimit:
     @pytest.mark.asyncio
     async def test_filters_limits_all_and_maps(self, monkeypatch):
         """Filter(repo_id), limit(N), all() → mapped DTO list."""
@@ -88,7 +90,7 @@ class TestFindAllByRepoIdWithLimit:
         qs.all.assert_awaited_once()
 
 
-class TestGetRepoFileChunks:
+class TestTortoiseGetRepoFileChunks:
     @pytest.mark.asyncio
     async def test_happy_path_filters_orders_and_values(self, monkeypatch):
         """Filter by (user_id, repo_id, file_name__icontains), order desc, values('content')."""
@@ -127,7 +129,7 @@ class TestGetRepoFileChunks:
         assert out == []
         assert "get_repo_file_chunks" in logged.get("msg", "")
 
-class TestGetUserRepoChunksMulti:
+class TestTortoiseGetUserRepoChunksMulti:
     @pytest.mark.asyncio
     async def test_executes_sql_via_fake_pgvector_connection(self, monkeypatch):
         """
@@ -216,3 +218,125 @@ class TestGetUserRepoChunksMulti:
         )
         assert out == []
         assert "Multi-query similarity search failed" in (logged["msg"] or "")
+
+class TestBeanieCodeChunksStore:
+    
+    @pytest.mark.asyncio
+    async def test_bulk_save_validation(self):
+        
+        store = repo_mod.BeanieCodeChunksStore()
+        
+        passing_empty = await store.bulk_save(create_model=[])
+        
+        assert passing_empty == []
+        
+        passing_none = await store.bulk_save(create_model=None)
+        
+        assert passing_none == []
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("repo_id, limit"),
+        [
+            ("", 1),
+            (" ", 1),
+            (None, 1),
+            ("some_repo_id", 0),
+        ],
+        ids=["Blank repo_id", "Empty repo_id", "None repo_id", "invalid limit"]
+    )
+    async def test_find_all_by_repo_id_with_limit_validation(self, repo_id:str, limit:int):
+        
+        store = repo_mod.BeanieCodeChunksStore()
+        
+        passed_value = await store.find_all_by_repo_id_with_limit(repo_id=repo_id, limit=limit)
+        
+        assert passed_value == []
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("user_id", "repo_id", "file_name"),
+        [
+            # user_id
+            ("", uuid.uuid4(), "readme"),
+            (" ", uuid.uuid4(), "readme"),
+            (None, uuid.uuid4(), "readme"),
+            # repo_id
+            (uuid.uuid4(), "", "readme"),
+            (uuid.uuid4(), " ", "readme"),
+            (uuid.uuid4(), None, "readme"),
+            # file_name
+            (uuid.uuid4(), uuid.uuid4(), ""),
+            (uuid.uuid4(), uuid.uuid4(), " "),
+            (uuid.uuid4(), uuid.uuid4(), None)
+        ],
+        ids=[
+            "Blank user_id",
+            "Empty user_id",
+            "None user_id",
+            
+            "Blank repo_id",
+            "Empty repo_id",
+            "None repo_id",
+            
+            "Blank file_name",
+            "Empty file_name",
+            "None file_name"
+        ]
+    )
+    async def test_get_repo_file_chunks_validation(self, user_id:str | uuid.UUID, repo_id: str | uuid.UUID, file_name:str):
+        
+        store = repo_mod.BeanieCodeChunksStore()
+        
+        passed_value = await store.get_repo_file_chunks(user_id=user_id, repo_id=repo_id, file_name=file_name)
+        
+        assert passed_value == []
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("user_id", "repo_id", "query_embeddings", "emb_dim", "limit"),
+        [
+            # user_id
+            ("", uuid.uuid4(), [[0.0] * EMBED_DIM], EMBED_DIM, 1),
+            (" ", uuid.uuid4(), [[0.0] * EMBED_DIM], EMBED_DIM, 1),
+            (None, uuid.uuid4(), [[0.0] * EMBED_DIM], EMBED_DIM, 1),
+            
+            # repo_id
+            (uuid.uuid4(), "", [[0.0] * EMBED_DIM], EMBED_DIM, 1),
+            (uuid.uuid4(), " ", [[0.0] * EMBED_DIM], EMBED_DIM, 1),
+            (uuid.uuid4(), None, [[0.0] * EMBED_DIM], EMBED_DIM, 1),
+            
+            # query_embeddings
+            (uuid.uuid4(), uuid.uuid4(), None, EMBED_DIM, 1),
+            (uuid.uuid4(), uuid.uuid4(), [], EMBED_DIM, 1),
+            (uuid.uuid4(), uuid.uuid4(), [[0.0] * (EMBED_DIM - 2)], EMBED_DIM, 1),
+            (uuid.uuid4(), uuid.uuid4(), [[0.0] * (EMBED_DIM + 2)], EMBED_DIM, 1),
+            
+            # limit
+            (uuid.uuid4(), uuid.uuid4(), [[0.0] * EMBED_DIM], EMBED_DIM, 0),
+        ],
+        ids=[
+            "Blank user_id",
+            "Empty user_id",
+            "None user_id",
+            
+            "Blank repo_id",
+            "Empty repo_id",
+            "None repo_id",
+            
+            "None query_embeddings",
+            "Empty query_embeddings",
+            "Less than EMBED_DIM query_embeddings",
+            "More than EMBED_DIM query_embeddings",
+            
+            "Invalid limit"
+        ]
+    )
+    async def test_get_user_repo_chunks_multi_validation(self, user_id:str | uuid.UUID, repo_id: str | uuid.UUID, query_embeddings:list[list[float]], emb_dim: int, limit:int):
+        
+        store = repo_mod.BeanieCodeChunksStore()
+        
+        passed_value = await store.get_user_repo_chunks_multi(user_id=user_id, repo_id=repo_id, query_embeddings=query_embeddings, emb_dim=emb_dim, limit=limit)
+        
+        assert passed_value == []
+

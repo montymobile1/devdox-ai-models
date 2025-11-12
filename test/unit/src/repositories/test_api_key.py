@@ -8,9 +8,9 @@ from test.unit.common_test_tools.model_factories import make_apikey
 from test.unit.common_test_tools.qs_chain import make_qs_chain
 
 
-class TestSave:
+class TestTortoiseSave:
     @pytest.mark.asyncio
-    async def test_save_returns_dto_with_real_model_instance(self, no_model_io, forbid_db, monkeypatch):
+    async def test_save_returns_dto_with_real_model_instance(self, no_tortoise_model_io, forbid_tortoise_db, monkeypatch):
         """Saving should call model.create() and hand back a DTO. No DB calls."""
         store = TortoiseApiKeyStore()
 
@@ -24,7 +24,7 @@ class TestSave:
         assert (dto.user_id, dto.api_key) == ("u1", "K1")
 
 
-class TestExistsByHashKey:
+class TestTortoiseExistsByHashKey:
     @pytest.mark.asyncio
     async def test_blank_input_short_circuits(self, monkeypatch):
         """Blank key -> False and zero DB work."""
@@ -55,7 +55,7 @@ class TestExistsByHashKey:
         model.filter.assert_any_call(api_key="MISS")
 
 
-class TestUpdateIsActive:
+class TestTortoiseUpdateIsActive:
     @pytest.mark.asyncio
     async def test_bad_inputs_return_minus1(self):
         """Bad user_id or missing id -> -1 and no DB calls."""
@@ -81,7 +81,7 @@ class TestUpdateIsActive:
         qs.update.assert_awaited_once_with(is_active=False)
 
 
-class TestCountByUserId:
+class TestTortoiseCountByUserId:
     @pytest.mark.asyncio
     async def test_blank_user_raises(self):
         """Blank user_id -> repo raises its internal error."""
@@ -104,7 +104,7 @@ class TestCountByUserId:
         qs.count.assert_awaited_once()
 
 
-class TestFindAllByUserId:
+class TestTortoiseFindAllByUserId:
     @pytest.mark.asyncio
     async def test_orders_desc_then_pages_then_maps(self, monkeypatch):
         """Builds query, orders by newest, paginates (offset*limit), maps to DTOs."""
@@ -129,7 +129,7 @@ class TestFindAllByUserId:
         qs.all.assert_awaited_once()
 
 
-class TestFindByActiveApiKey:
+class TestTortoiseFindByActiveApiKey:
     @pytest.mark.asyncio
     async def test_blank_api_key_returns_none(self, monkeypatch):
         """Blank api_key -> None and zero DB calls."""
@@ -156,7 +156,7 @@ class TestFindByActiveApiKey:
         qs.first.assert_awaited_once()
 
 
-class TestUpdateLastUsedById:
+class TestTortoiseUpdateLastUsedById:
     @pytest.mark.asyncio
     async def test_blank_id_returns_minus1(self, monkeypatch):
         """Blank id -> -1 and zero DB calls."""
@@ -168,7 +168,7 @@ class TestUpdateLastUsedById:
         model.filter.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_sets_utc_timestamp_exactly(self, freeze_repo_time, monkeypatch):
+    async def test_sets_utc_timestamp_exactly(self, freeze_tortoise_repo_time, monkeypatch):
         """
         Should call filter(id=...) then update(last_used_at=<our frozen UTC time>).
         We freeze time inside the repo so the value is exact, not "close".
@@ -185,4 +185,4 @@ class TestUpdateLastUsedById:
 
         model.filter.assert_called_once_with(id="abc")
         kwargs = qs.update.call_args.kwargs
-        assert kwargs.get("last_used_at") == freeze_repo_time  # exact match
+        assert kwargs.get("last_used_at") == freeze_tortoise_repo_time  # exact match
