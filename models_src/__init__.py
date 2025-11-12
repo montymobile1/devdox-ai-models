@@ -13,6 +13,7 @@ from .dto.user import UserRequestDTO, UserResponseDTO
 # exceptions
 from .exceptions.local_exception import JobAlreadyClaimed
 from .exceptions import exception_constants
+from .exceptions.utils import RepoErrors
 from .models.code_chunks_document import EMBED_DIM
 
 # models
@@ -69,8 +70,8 @@ __all__ = [
 	"UserResponseDTO", "UserRequestDTO", "IUserStore", "BeanieUserStore", "FakeUserStore", "StubUserStore", "make_fake_user",
 	"get_active_user_store",
 	
-	# exceptions
-	"JobAlreadyClaimed", "exception_constants",
+	# exceptions & error handling
+	"JobAlreadyClaimed", "exception_constants", "RepoErrors"
 	
 ]
 
