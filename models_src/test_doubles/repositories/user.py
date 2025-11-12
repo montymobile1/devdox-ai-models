@@ -70,7 +70,16 @@ class FakeUserStore(FakeBase, IUserStore):
             updated += 1
 
         return updated
-
+    
+    async def exists_by_user_id(self, user_id: str) -> bool:
+        self._before(self.exists_by_user_id, user_id=user_id)
+        
+        if not user_id or not user_id.strip():
+            return False
+        
+        res = self.__get_data_store(user_id=user_id)
+        
+        return True if res else False
 
 class StubUserStore(StubPlanMixin, IUserStore):
 
@@ -87,7 +96,11 @@ class StubUserStore(StubPlanMixin, IUserStore):
         return await self._stub(
             self.increment_token_usage, user_id=user_id, tokens_used=tokens_used
         )
-
+    
+    async def exists_by_user_id(self, user_id: str) -> bool:
+        return await self._stub(
+            self.exists_by_user_id, user_id=user_id
+        )
 
 def make_fake_user(user_id="user123", email="test@example.com", encryption_salt="xyz"):
     return UserResponseDTO(

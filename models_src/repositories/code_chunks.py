@@ -173,7 +173,7 @@ class TortoiseCodeChunksStore(ICodeChunksStore):
             logging.exception("Multi-query similarity search failed")
             return []
 
-class BeanieCodeChunksStore:
+class BeanieCodeChunksStore(ICodeChunksStore):
     """
     Beanie implementation for ICodeChunksStore (basic methods).
     """

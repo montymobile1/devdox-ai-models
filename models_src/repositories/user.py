@@ -20,7 +20,9 @@ class IUserStore(Protocol):
 
     @abstractmethod
     async def increment_token_usage(self, user_id: str, tokens_used: int) -> int: ...
-
+    
+    @abstractmethod
+    async def exists_by_user_id(self, user_id: str) -> bool: ...
 
 class TortoiseUserStore(IUserStore):
 
@@ -61,7 +63,12 @@ class TortoiseUserStore(IUserStore):
         return await self.model.filter(user_id=user_id).update(
             token_used=F("token_used") + tokens_used
         )
-
+    
+    async def exists_by_user_id(self, user_id: str) -> bool:
+        if not user_id or not user_id.strip():
+            return False
+        
+        return await self.model.filter(user_id=user_id).exists()
 
 class BeanieUserStore(IUserStore):
     model = UserDocument
@@ -98,6 +105,12 @@ class BeanieUserStore(IUserStore):
             Inc({self.model.token_used: tokens_used})
         )
         return result.matched_count
-
+    
+    async def exists_by_user_id(self, user_id: str) -> bool:
+        if not user_id or not user_id.strip():
+            return False
+        
+        return await self.model.find(self.model.user_id == user_id).exists()
+    
 def get_active_user_store():
     return BeanieUserStore()

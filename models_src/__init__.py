@@ -9,11 +9,12 @@ from .dto.git_label import GitLabelRequestDTO, GitLabelResponseDTO
 from .dto.queue_job_claim_registry import QueueProcessingRegistryRequestDTO, QueueProcessingRegistryResponseDTO
 from .dto.repo import GitHosting, RepoRequestDTO, RepoResponseDTO
 from .dto.user import UserRequestDTO, UserResponseDTO
+from .exceptions.base_exceptions import DevDoxModelsException
 
 # exceptions
 from .exceptions.local_exception import JobAlreadyClaimed
 from .exceptions import exception_constants
-from .exceptions.utils import RepoErrors
+from .exceptions.utils import GitLabelErrors, internal_error, RepoErrors
 from .models.code_chunks_document import EMBED_DIM
 
 # models
@@ -53,7 +54,7 @@ __all__ = [
 	"CodeChunksResponseDTO", "CodeChunksRequestDTO", "ICodeChunksStore", "BeanieCodeChunksStore", "FakeCodeChunksStore",
 	"StubCodeChunksStore", "get_active_code_chunks_store", "EMBED_DIM",
 	
-	# git_lab
+	# git_label
 	"GitLabelResponseDTO", "GitLabelRequestDTO", "ILabelStore", "BeanieGitLabelStore", "FakeGitLabelStore",
 	"StubGitLabelStore", "make_fake_git_label", "get_active_git_label_store",
 	
@@ -71,7 +72,7 @@ __all__ = [
 	"get_active_user_store",
 	
 	# exceptions & error handling
-	"JobAlreadyClaimed", "exception_constants", "RepoErrors"
+	"DevDoxModelsException", "JobAlreadyClaimed", "exception_constants", "RepoErrors", "GitLabelErrors", "internal_error"
 	
 ]
 

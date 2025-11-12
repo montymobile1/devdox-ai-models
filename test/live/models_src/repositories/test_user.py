@@ -168,3 +168,54 @@ async def test_user_increment_token_usage_happy_path_and_edges(db_client):
     # Invalid inputs -> -1 (legacy semantics)
     assert await repo.increment_token_usage("   ", 10) == -1
     assert await repo.increment_token_usage("user_inc_1", 0) == -1
+
+@pytest.mark.asyncio
+async def test_exists_by_user_id(db_client):
+    repo = store()
+    
+    # Insert two users (direct insert to avoid DTO dependency if needed)
+    u1 = repo.model(
+        id=uuid.uuid4(),
+        user_id="user_find_1",
+        first_name="John",
+        last_name="Smith",
+        email="john@example.com",
+        username="john",
+        role="member",
+        active=True,
+        membership_level="free",
+        token_limit=500,
+        token_used=0,
+        encryption_salt="0",
+        created_at=datetime.datetime.now(datetime.timezone.utc),
+        updated_at=datetime.datetime.now(datetime.timezone.utc),
+    )
+    u2 = repo.model(
+        id=uuid.uuid4(),
+        user_id="user_find_2",
+        first_name="Jane",
+        last_name="Roe",
+        email="jane@example.com",
+        username="jane",
+        role="admin",
+        active=True,
+        membership_level="pro",
+        token_limit=5000,
+        token_used=10,
+        encryption_salt="0",
+        created_at=datetime.datetime.now(datetime.timezone.utc),
+        updated_at=datetime.datetime.now(datetime.timezone.utc),
+    )
+    await repo.model.insert_many([u1, u2])
+    
+    # found
+    dto = await repo.exists_by_user_id("user_find_1")
+    assert dto is True
+    
+    # missing
+    dto2 = await repo.exists_by_user_id("does_not_exist")
+    assert dto2 is False
+    
+    # blank short-circuit
+    dto3 = await repo.exists_by_user_id("   ")
+    assert dto3 is False
