@@ -1,6 +1,12 @@
+import datetime
+import uuid
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 
+from models_src.exceptions.utils import RepoErrors
+
+from models_src.exceptions.base_exceptions import DevDoxModelsException
 from tortoise.exceptions import DoesNotExist, IntegrityError
 
 
@@ -575,3 +581,179 @@ class TestTortoiseFindByRepoIdUserIdIntegration:
         assert dto2.user_id == "user2"
         assert model.filter.call_count == 2
 
+class TestBeanieRepoStoreValidations:
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("repo_id", "user_id"),
+        [
+            ("","valid user_id"),
+            (" ","valid user_id"),
+            (None,"valid user_id"),
+            ("valid repo_id", ""),
+            ("valid repo_id", " "),
+            ("valid repo_id", None),
+        ],
+        ids=[
+            "Empty repo_id", "Blank repo_id",  "None repo_id",
+            "Empty user_id", "Blank user_id",  "None user_id",
+        ]
+    )
+    async def test_save_context_validation(self, repo_id: str, user_id: str):
+        
+        store = repo_mod.BeanieRepoStore()
+        
+        with pytest.raises(DevDoxModelsException) as p:
+            await store.save_context(user_id=user_id, repo_id=repo_id, config={})
+        
+        err = RepoErrors.REPOSITORY_DOESNT_EXIST.value
+        
+        assert p.value.log_message == err["log_message"]
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "repo_id",
+        [
+            "",
+            " ",
+            None,
+            "not a valid uuid"
+        ],
+        ids=[
+            "Empty user_id", "Blank user_id",  "None user_id", "invalid uuid"
+        ]
+    )
+    async def test_get_by_id_validation(self, repo_id: str):
+        
+        store = repo_mod.BeanieRepoStore()
+        
+        with pytest.raises(DevDoxModelsException) as p:
+            await store.get_by_id(repo_id=repo_id)
+        
+        err = RepoErrors.REPOSITORY_DOESNT_EXIST.value
+        
+        assert p.value.log_message == err["log_message"]
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "id",
+        [
+            "",
+            " ",
+            None,
+            "not a valid uuid"
+        ],
+        ids=[
+            "Empty", "Blank",  "None", "invalid uuid"
+        ]
+    )
+    async def test_find_by_id_validation(self, id: str):
+        
+        store = repo_mod.BeanieRepoStore()
+        
+        res = await store.find_by_id(id=id)
+        
+        assert not res
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "user_id",
+        [
+            "",
+            " ",
+            None
+        ],
+        ids=[
+            "Empty user_id", "Blank user_id",  "None user_id"
+        ]
+    )
+    async def test_find_all_by_user_id_validation(self, user_id: str):
+        
+        store = repo_mod.BeanieRepoStore()
+        
+        with pytest.raises(DevDoxModelsException) as p:
+            await store.find_all_by_user_id(user_id=user_id, offset=0, limit=10)
+        
+        err = RepoErrors.MISSING_USER_ID.value
+        
+        assert p.value.log_message == err["log_message"]
+    
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "user_id",
+        [
+            "",
+            " ",
+            None
+        ],
+        ids=[
+            "Empty user_id", "Blank user_id",  "None user_id"
+        ]
+    )
+    async def test_count_by_user_id_validation(self, user_id: str):
+        
+        store = repo_mod.BeanieRepoStore()
+        
+        with pytest.raises(DevDoxModelsException) as p:
+            await store.count_by_user_id(user_id=user_id)
+        
+        err = RepoErrors.MISSING_USER_ID.value
+        
+        assert p.value.log_message == err["log_message"]
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("id", "status"),
+        [
+            ("", "valid status"),
+            (" ", "valid status"),
+            (None, "valid status"),
+            ("invalid uuid", "valid status"),
+            (str(uuid.uuid4()), ""),
+            (str(uuid.uuid4()), " "),
+            (str(uuid.uuid4()), None),
+        ],
+        ids=["Empty id", "Blank id",  "None id", "invalid  uuid id",
+             "Empty status", "Blank status",  "None status"]
+    )
+    async def test_update_analysis_metadata_by_id_validation(self, id: str, status: str):
+        
+        store = repo_mod.BeanieRepoStore()
+        
+        res = await store.update_analysis_metadata_by_id(
+            id=id,
+            status=status,
+            processing_end_time=datetime.datetime.now(datetime.timezone.utc),
+            total_files=100,
+            total_chunks=100,
+            total_embeddings=100,
+        )
+        
+        assert res == -1
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("id", "repo_system_reference"),
+        [
+            ("", "valid repo_system_reference"),
+            (" ", "valid repo_system_reference"),
+            (None, "valid repo_system_reference"),
+            ("invalid uuid", "valid repo_system_reference"),
+            (str(uuid.uuid4()), ""),
+            (str(uuid.uuid4()), " "),
+            (str(uuid.uuid4()), None),
+        ],
+        ids=["Empty id", "Blank id",  "None id", "invalid  uuid id",
+             "Empty repo_system_reference", "Blank repo_system_reference",  "None repo_system_reference"]
+    )
+    async def test_update_repo_system_reference_by_id_validation(self, id: str, repo_system_reference: str):
+        
+        store = repo_mod.BeanieRepoStore()
+        
+        res = await store.update_repo_system_reference_by_id(
+            id=id,
+            repo_system_reference=repo_system_reference
+        )
+        
+        assert res == -1

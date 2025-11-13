@@ -478,7 +478,7 @@ class TestBeanieGitLabelStoreValidations:
     )
     async def test_delete_by_id_and_user_id_validation(self, label_id: uuid.UUID, user_id: str):
         
-        store = store = repo_mod.BeanieGitLabelStore()
+        store = repo_mod.BeanieGitLabelStore()
         
         res = await store.delete_by_id_and_user_id(label_id=label_id, user_id=user_id)
         

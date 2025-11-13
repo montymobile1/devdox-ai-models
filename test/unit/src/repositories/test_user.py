@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock, AsyncMock
 
 from models_src.dto.user import UserRequestDTO, UserResponseDTO
-from models_src.repositories.user import TortoiseUserStore
+from models_src.repositories.user import BeanieUserStore, TortoiseUserStore
 from test.unit.common_test_tools.model_factories import make_user
 from test.unit.common_test_tools.qs_chain import make_qs_chain
 
@@ -112,3 +112,66 @@ class TestTortoiseIncrementTokenUsage:
         model.filter.assert_called_once_with(user_id="u5")
         kwargs = qs.update.call_args.kwargs
         assert "token_used" in kwargs
+
+class TestBeanieUserStoreValidations:
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "user_id",
+        [
+            "",
+            " ",
+            None
+        ],
+        ids=[
+            "Empty", "Blank",  "None"
+        ]
+    )
+    async def test_find_by_user_id_validation(self, user_id: str):
+        
+        store = BeanieUserStore()
+        
+        res = await store.find_by_user_id(user_id=user_id)
+        
+        assert not res
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("user_id","tokens_used"),
+        [
+            ("", 1),
+            (" ", 1),
+            (None, 1),
+            ("valid user_id", None),
+        ],
+        ids=[
+            "Empty user_id", "Blank user_id",  "None user_id", "None tokens_used"
+        ]
+    )
+    async def test_increment_token_usage_validation(self, user_id: str, tokens_used: int):
+        
+        store = BeanieUserStore()
+        
+        res = await store.increment_token_usage(user_id=user_id, tokens_used=tokens_used)
+        
+        assert res == -1
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "user_id",
+        [
+            "",
+            " ",
+            None
+        ],
+        ids=[
+            "Empty", "Blank",  "None"
+        ]
+    )
+    async def test_exists_by_user_id_validation(self, user_id: str):
+        
+        store = BeanieUserStore()
+        
+        res = await store.exists_by_user_id(user_id=user_id)
+        
+        assert not res

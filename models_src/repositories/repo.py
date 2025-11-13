@@ -283,6 +283,10 @@ class BeanieRepoStore(IRepoStore):
         return self.model_mapper.map_document_to_dataclass(doc, RepoResponseDTO)
 
     async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
+        
+        if not id or not id.strip():
+            return None
+        
         try:
             uuid_id = uuid.UUID(id)
         except ValueError:

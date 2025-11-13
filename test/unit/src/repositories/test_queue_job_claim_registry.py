@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 import datetime as dt
 from unittest.mock import MagicMock, AsyncMock
@@ -185,3 +187,95 @@ class TestTortoiseFindPreviousLatestMessageByMessageId:
         dto = await store.find_previous_latest_message_by_message_id("missing")
         assert dto is None
         fake_class.filter.assert_called_once_with(message_id="missing")
+
+class TestBeanieQueueProcessingRegistryStoreValidations:
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("id", "status"),
+        [
+            ("", QRegistryStat.IN_PROGRESS),
+            (" ", QRegistryStat.IN_PROGRESS),
+            (None, QRegistryStat.IN_PROGRESS),
+            ("not a valid uuid", QRegistryStat.IN_PROGRESS),
+            (uuid.uuid4(), None),
+        ],
+        ids=["Empty id", "Blank id",  "None id", "Invalid id", "None status"]
+    )
+    async def test_update_status_or_message_id_by_id_validation(self, id: str, status: QRegistryStat):
+        
+        store = repo_mod.BeanieQueueProcessingRegistryStore()
+        
+        res = await store.update_status_or_message_id_by_id(id=id, status=status)
+        
+        assert res == -1
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("id", "step"),
+        [
+            ("", "valid_step"),
+            (" ", "valid_step"),
+            (None, "valid_step"),
+            ("not a valid uuid", "valid_step"),
+            (uuid.uuid4(), ""),
+            (uuid.uuid4(), " "),
+            (uuid.uuid4(), None),
+        ],
+        ids=[
+            "Empty id", "Blank id",  "None id", "Invalid id",
+            "Empty step", "Blank step",  "None step",
+        ]
+    )
+    async def test_update_step_by_id_validation(self, id: str, step: str):
+        
+        store = repo_mod.BeanieQueueProcessingRegistryStore()
+        
+        res = await store.update_step_by_id(id=id, step=step)
+        
+        assert res == -1
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("id", "status", "step"),
+        [
+            ("", QRegistryStat.IN_PROGRESS, "valid step"),
+            (" ", QRegistryStat.IN_PROGRESS, "valid step"),
+            (None, QRegistryStat.IN_PROGRESS, "valid step"),
+            ("not a valid uuid", QRegistryStat.IN_PROGRESS, "valid step"),
+            (uuid.uuid4(), None, "valid step"),
+            (uuid.uuid4(), QRegistryStat.IN_PROGRESS, ""),
+            (uuid.uuid4(), QRegistryStat.IN_PROGRESS, " "),
+            (uuid.uuid4(), QRegistryStat.IN_PROGRESS, None),
+        ],
+        ids=[
+            "Empty id", "Blank id",  "None id", "Invalid id",
+            "None status",
+            "Empty step", "Blank step",  "None step"
+        ]
+    )
+    async def test_update_status_and_step_by_id_validation(self, id: str, status: QRegistryStat, step:str):
+        
+        store = repo_mod.BeanieQueueProcessingRegistryStore()
+        
+        res = await store.update_status_and_step_by_id(id=id, status=status, step=step)
+        
+        assert res == -1
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "message_id",
+        [
+            "",
+            " ",
+            None
+        ],
+        ids=["Empty message_id", "Blank message_id",  "None message_id"]
+    )
+    async def test_find_previous_latest_message_by_message_id_validation(self, message_id: str):
+        
+        store = repo_mod.BeanieQueueProcessingRegistryStore()
+        
+        res = await store.find_previous_latest_message_by_message_id(message_id=message_id)
+        
+        assert not res
