@@ -309,10 +309,10 @@ class TortoiseRepoBackend(IRepoStore):
         repo = await self.model.get(id=repo_id)
 
         # Ensure we have a list
-        parent_ids = repo.repo_parent_repo_id or []
+        parent_ids = repo.repo_parent_id or []
         if parent_repo_id not in parent_ids:
             parent_ids.append(parent_repo_id)
-            repo.repo_parent_repo_id = parent_ids
+            repo.repo_parent_id = parent_ids
             await repo.save()
         return len(parent_ids)
 
