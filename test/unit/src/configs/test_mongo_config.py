@@ -17,7 +17,14 @@ class TestMongoConfigBuildURI:
         )
         expected = "mongodb://alice:s3cr3t@localhost:27017/app"
         assert config.build_uri() == expected
-
+    
+    def test_single_host_with_username_credentials_only(self):
+        config = MongoConfig(
+            USERNAME="alice"
+        )
+        expected = "mongodb://alice@localhost:27017/app"
+        assert config.build_uri() == expected
+    
     def test_credentials_are_percent_encoded(self):
         config = MongoConfig(
             USERNAME="user@domain.com",
