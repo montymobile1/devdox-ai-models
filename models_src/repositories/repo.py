@@ -480,6 +480,24 @@ class BeanieRepoBackend(IRepoStore):
         ).first_or_none()
         return self.model_mapper.map_document_to_dataclass(doc, RepoResponseDTO)
 
+    async def update_repo_parent_id(self, repo_id: str, parent_repo_id: str) -> None:
+        if (
+                not repo_id
+                or not repo_id.strip()
+                or not parent_repo_id
+                or not parent_repo_id.strip()
+        ):
+            return -1
+        repo = await self.model.get(id=repo_id)
+
+        # Ensure we have a list
+        parent_ids = repo.repo_parent_id or []
+        if parent_repo_id not in parent_ids:
+            parent_ids.append(parent_repo_id)
+            repo.repo_parent_id = parent_ids
+            await repo.save()
+        return len(parent_ids)
+
 class InMemoryRepoBackend(IRepoStore):
     
     store_cls = RepoStore
