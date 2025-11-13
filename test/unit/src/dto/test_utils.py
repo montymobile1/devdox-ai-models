@@ -4,12 +4,84 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import pymongo
+import pytest
 from beanie import Document, Indexed
 from pydantic import Field
 from tortoise import fields, Model
 
-from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
+from models_src.dto.utils import BeanieModelMapper, DataclassMapper, TortoiseModelMapper
 
+class TestDataclassMapper:
+    mapper = DataclassMapper
+    
+    @pytest.mark.parametrize(
+        ("source", "target_cls"),
+        [
+            (None, "SOME VALID DATACLASS"),
+            ("SOME VALID DATACLASS", None),
+        ],
+        ids=["None source dataclass", "None target_cls dataclass"]
+    )
+    def test_map_dataclass_to_dataclass_validations(self, source, target_cls):
+
+        res = self.mapper.map_dataclass_to_dataclass(
+            source=source, target_cls=target_cls
+        )
+        
+        assert not res
+    
+    def test_map_dataclass_to_dataclass_have_equal_fields(self):
+        
+        @dataclass
+        class CS1:
+            first_name: str
+            last_name: str
+        
+        @dataclass
+        class CS2:
+            first_name: str
+            last_name: str
+        
+        cs1 = CS1(
+            first_name="Mohammad",
+            last_name="Jaafar"
+        )
+        
+        mapped_class = self.mapper.map_dataclass_to_dataclass(
+            cs1, CS2
+        )
+        
+        assert isinstance(mapped_class, CS2)
+        assert mapped_class.first_name == cs1.first_name
+        assert mapped_class.last_name == cs1.last_name
+    
+    
+    def test_map_dataclass_to_dataclass_where_dataclass_has_less_fields_than_other(self):
+        
+        @dataclass
+        class CS1:
+            first_name: str
+            last_name: str
+            email: str
+        
+        @dataclass
+        class CS2:
+            first_name: str
+            last_name: str
+        
+        cs1 = CS1(
+            first_name="Mohammad",
+            last_name="Jaafar",
+            email="moo"
+        )
+        
+        mapped_class = self.mapper.map_dataclass_to_dataclass(
+            cs1, CS2
+        )
+        
+        assert isinstance(mapped_class, CS2)
+        assert mapped_class.first_name == cs1.first_name
+        assert mapped_class.last_name == cs1.last_name
 
 class TestTortoiseModelMapper:
 
@@ -62,7 +134,26 @@ class TestTortoiseModelMapper:
 
         def __repr__(self):
             return self.__str__()
-
+    
+    @pytest.mark.parametrize(
+        ("sources", "target_cls"),
+        [
+            (None, "VALID"),
+            ([], "VALID"),
+            ("VALID", None),
+        ],
+        ids=["None source", "Empty Source", "None target_cls"]
+    )
+    def test_map_models_to_dataclasses_list_validations(self, sources, target_cls):
+        
+        mapped_class = self.mapper.map_models_to_dataclasses_list(
+            sources=sources, target_cls=target_cls
+        )
+        
+        assert isinstance(mapped_class, list)
+        assert len(mapped_class) == 0
+        
+    
     def test_map_model_to_dataclass_where_model_and_dto_have_equal_fields(self):
 
         model_id = uuid.uuid4()
@@ -237,7 +328,41 @@ class TestBeanieModelMapper:
         
         def __repr__(self) -> str:
             return self.__str__()
-
+    
+    @pytest.mark.parametrize(
+        ("source", "target_cls"),
+        [
+            (None, "VALID"),
+            ("VALID", None),
+        ],
+        ids=["None source", "None target_cls"]
+    )
+    def test_map_document_to_dataclass_validations(self, source, target_cls):
+        
+        mapped_class = self.mapper.map_document_to_dataclass(
+            source=source, target_cls=target_cls
+        )
+        
+        assert not mapped_class
+    
+    @pytest.mark.parametrize(
+        ("sources", "target_cls"),
+        [
+            (None, "VALID"),
+            ([], "VALID"),
+            ("VALID", None),
+        ],
+        ids=["None source", "Empty Sources", "None target_cls"]
+    )
+    def test_map_documents_to_dataclasses_list_validations(self, sources, target_cls):
+        
+        mapped_class = self.mapper.map_documents_to_dataclasses_list(
+            sources=sources, target_cls=target_cls
+        )
+        
+        assert isinstance(mapped_class, list)
+        assert len(mapped_class) == 0
+    
     def test_map_document_to_dataclass_where_document_and_dto_have_equal_fields(self):
 
         model_id = uuid.uuid4()

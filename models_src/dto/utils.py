@@ -23,8 +23,11 @@ class DataclassMapper:
         if source_target_mapping:
             for old_key, new_key in source_target_mapping.items():
                 source_dict[new_key] = source_dict.pop(old_key)
-
-        return target_cls(**source_dict)
+        
+        target_cls_fields = {f.name for f in fields(target_cls)}
+        
+        filtered_data = {k: v for k, v in source_dict.items() if k in target_cls_fields}
+        return target_cls(**filtered_data)
 
 
 class TortoiseModelMapper:
