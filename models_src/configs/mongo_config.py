@@ -8,7 +8,7 @@ class MongoConfig(BaseModel):
         description="MongoDB URI scheme. Use 'mongodb+srv' for DNS SRV discovery (Atlas etc.). "
                     "When using '+srv', the 'port' setting is ignored."
     )
-
+    
     HOST: str = Field(
         default="localhost",
         description="Hostname(s) of the server or cluster. "
@@ -16,38 +16,38 @@ class MongoConfig(BaseModel):
                     "Replica set: comma-separated hosts, e.g. 'h1:27017,h2:27017,h3:27017'. "
                     "For SRV: 'cluster0.xxxxx.mongodb.net' (ports not included)."
     )
-
+    
     PORT: int = Field(
         default=27017,
         ge=1, le=65535,
         description="TCP port for classic 'mongodb://' URIs. "
                     "Ignored when scheme='mongodb+srv', or when per-host ports are already present."
     )
-
+    
     DB: str = Field(
-        default="app",
+        default=None,
         description="Database name appended in the URI path (.../<db>). "
                     "Required because the initializer calls get_default_database() for Beanie."
     )
-
+    
     USERNAME: Optional[str] = Field(
         default=None,
         description="Username for authentication (e.g., SCRAM). "
                     "Leave unset for unauthenticated connections."
     )
-
+    
     PASSWORD: Optional[SecretStr] = Field(
         default=None,
         description="Password paired with 'username'. Leave unset if not required. "
                     "Stored as SecretStr to avoid accidental logging."
     )
-
+    
     AUTH_DB: Optional[str] = Field(
         default=None,
         description="Authentication database (maps to URI query 'authSource'). "
                     "If omitted, drivers may default to the target DB or 'admin' depending on server config."
     )
-
+    
     PARAMS: Dict[str, str] = Field(
         default_factory=dict,
         description="Additional URI query params merged into the connection string. "
@@ -55,7 +55,7 @@ class MongoConfig(BaseModel):
                     "'serverSelectionTimeoutMS':'5000'}. "
                     "'authSource' will be added from auth_db if not explicitly provided here."
     )
-
+    
     def build_uri(self) -> str:
         """
         Build a standards-compliant MongoDB URI with optional credentials and query params.
@@ -68,18 +68,22 @@ class MongoConfig(BaseModel):
                 creds = f"{quote(self.USERNAME)}:{quote(self.PASSWORD.get_secret_value())}@"
             else:
                 creds = f"{quote(self.USERNAME)}@"
-
+        
         # hosts
         hosts = self.HOST
         if self.SCHEME != "mongodb+srv":
             # If single host without an explicit port, append default port
             if "," not in hosts and ":" not in hosts:
                 hosts = f"{hosts}:{self.PORT}"
-
+        
         # query params
         q: Dict[str, str] = dict(self.PARAMS or {})
         if self.AUTH_DB and "authSource" not in q:
             q["authSource"] = self.AUTH_DB
         query = f"?{urlencode(q)}" if q else ""
-
-        return f"{self.SCHEME}://{creds}{hosts}/{self.DB}{query}"
+        
+        db_name = ""
+        if self.DB:
+            db_name = self.DB
+        
+        return f"{self.SCHEME}://{creds}{hosts}/{db_name}{query}"
