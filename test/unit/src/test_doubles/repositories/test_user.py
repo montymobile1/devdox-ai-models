@@ -23,6 +23,19 @@ class TestFakeUserStore:
         assert store._FakeUserStore__get_data_store("u1") is u1
         assert store._FakeUserStore__get_data_store("u2") is u2
     
+    async def test_exists_by_user_id(self):
+        store = FakeUserStore()
+        u1 = make_fake_user(user_id="u1")
+        u2 = make_fake_user(user_id="u2")
+        
+        store.set_fake_data([u1, u2])
+        
+        exist = await store.exists_by_user_id(user_id=u1.user_id)
+        not_exist = await store.exists_by_user_id(user_id="does not exist user_id")
+        
+        assert exist
+        assert not not_exist
+    
     
     async def test_save_assigns_id_created_at_and_inserts(self):
         store = FakeUserStore()
