@@ -310,14 +310,10 @@ class TortoiseRepoBackend(IRepoStore):
 
         # Ensure we have a list
         parent_ids = repo.repo_parent_repo_id or []
-
-        # Add new ID only if not present
         if parent_repo_id not in parent_ids:
             parent_ids.append(parent_repo_id)
             repo.repo_parent_repo_id = parent_ids
             await repo.save()
-
-
         return len(parent_ids)
 
     async def update_analysis_metadata_by_id(
