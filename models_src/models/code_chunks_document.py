@@ -8,6 +8,7 @@ import pymongo
 from beanie import Document, Indexed
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from models_src.exceptions.exception_constants import EMBEDDINGS_INVALID_SIZE
 from models_src.models.document_extra.timestamp import TimestampAuditMixin
 
 EMBED_DIM = 768  # set to your model's dimension
@@ -50,7 +51,7 @@ class CodeChunks(TimestampAuditMixin, Document):
         if v is None:
             return v
         if len(v) != EMBED_DIM:
-            raise ValueError(f"embedding must have length {EMBED_DIM}, got {len(v)}")
+            raise ValueError(EMBEDDINGS_INVALID_SIZE.format(EMBED_DIM=EMBED_DIM, ARRAY_LENGTH=len(v)))
         return v
 
     def __str__(self) -> str:
