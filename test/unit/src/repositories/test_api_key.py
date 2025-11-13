@@ -2,8 +2,11 @@ import uuid
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 
+from models_src.exceptions.base_exceptions import DevDoxModelsException
+
 from models_src.dto.api_key import APIKeyRequestDTO, APIKeyResponseDTO
-from models_src.repositories.api_key import TortoiseApiKeyStore
+from models_src.exceptions.utils import ApiKeysErrors
+from models_src.repositories.api_key import BeanieApiKeyStore, TortoiseApiKeyStore
 from test.unit.common_test_tools.model_factories import make_apikey
 from test.unit.common_test_tools.qs_chain import make_qs_chain
 
@@ -186,3 +189,113 @@ class TestTortoiseUpdateLastUsedById:
         model.filter.assert_called_once_with(id="abc")
         kwargs = qs.update.call_args.kwargs
         assert kwargs.get("last_used_at") == freeze_tortoise_repo_time  # exact match
+
+class TestBeanieApiKeyStoreValidations:
+    
+    @pytest.mark.asyncio
+    async def test_exists_by_hash_key_validation(self):
+        
+        store = BeanieApiKeyStore()
+        
+        passing_empty = await store.exists_by_hash_key(hash_key="")
+        assert passing_empty == False
+        
+        passing_blank = await store.exists_by_hash_key(hash_key=" ")
+        assert passing_blank == False
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("user_id, api_key_id"),
+        [
+            ("", uuid.uuid4()),
+            (" ", uuid.uuid4()),
+            (None, uuid.uuid4()),
+            ("valid_id", None),
+        ],
+        ids=["Empty user_id", "Blank user_id",  "None user_id", "None api_key_id"]
+    )
+    async def test_update_is_active_by_user_id_and_api_key_id_validation(self, user_id: str, api_key_id: uuid.UUID):
+        
+        store = BeanieApiKeyStore()
+        
+        result = await store.update_is_active_by_user_id_and_api_key_id(user_id=user_id, api_key_id=api_key_id, is_active=True)
+        assert result == -1
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "user_id",
+        [
+	        "",
+	        " ",
+	        None,
+        ],
+        ids=["Empty user_id", "Blank user_id",  "None user_id"]
+    )
+    async def test_count_by_user_id_validation(self, user_id: str):
+        
+        store = BeanieApiKeyStore()
+        
+        with pytest.raises(DevDoxModelsException) as p:
+            await store.count_by_user_id(user_id=user_id)
+        
+        err = ApiKeysErrors.MISSING_USER_ID.value
+        
+        assert p.value.log_message == err["log_message"]
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "user_id",
+        [
+            "",
+            " ",
+            None,
+        ],
+        ids=["Empty user_id", "Blank user_id",  "None user_id"]
+    )
+    async def test_find_all_by_user_id_validation(self, user_id: str):
+        
+        store = BeanieApiKeyStore()
+        
+        with pytest.raises(DevDoxModelsException) as p:
+            await store.find_all_by_user_id(offset=0, limit=10, user_id=user_id)
+        
+        err = ApiKeysErrors.MISSING_USER_ID.value
+        
+        assert p.value.log_message == err["log_message"]
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "api_key",
+        [
+            "",
+            " ",
+            None,
+        ],
+        ids=["Empty api_key", "Blank api_key",  "None api_key"]
+    )
+    async def test_find_by_active_api_key_validation(self, api_key: str):
+        
+        store = BeanieApiKeyStore()
+        
+        res = await store.find_by_active_api_key(api_key=api_key, is_active= True)
+        
+        assert not res
+    
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "id",
+        [
+            "",
+            " ",
+            None,
+            "not a valid uuid"
+        ],
+        ids=["Empty id", "Blank id",  "None id", "Invalid id"]
+    )
+    async def test_update_last_used_by_id_validation(self, id: str):
+        
+        store = BeanieApiKeyStore()
+        
+        res = await store.update_last_used_by_id(id=id)
+        
+        assert res == -1

@@ -219,7 +219,7 @@ class TestTortoiseGetUserRepoChunksMulti:
         assert out == []
         assert "Multi-query similarity search failed" in (logged["msg"] or "")
 
-class TestBeanieCodeChunksStore:
+class TestBeanieCodeChunksStoreValidations:
     
     @pytest.mark.asyncio
     async def test_bulk_save_validation(self):

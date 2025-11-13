@@ -259,11 +259,16 @@ class BeanieGitLabelStore(ILabelStore):
     async def find_by_id_and_user_id_and_git_hosting(
         self, id: str, user_id: str, git_hosting: str
     ) -> Optional[GitLabelResponseDTO]:
+        
+        if not id or not id.strip() or not user_id or not user_id.strip() or not git_hosting or not git_hosting.strip():
+            return None
+        
         try:
             uuid_id = UUID(id)
         except ValueError:
             return None
-
+        
+        
         doc = await self.model.find(
             self.model.id == uuid_id,
             self.model.user_id == user_id,
