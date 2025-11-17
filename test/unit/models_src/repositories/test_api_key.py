@@ -160,7 +160,7 @@ class TestInMemoryApiKeyBackend:
 
         updated_count = await store.update_is_active_by_user_id_and_api_key_id(
             user_id=user_id,
-            api_key_id=saved.id,
+            api_key_id=saved.api_key,
             is_active=False,
         )
 
