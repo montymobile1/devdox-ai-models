@@ -53,7 +53,7 @@ class IQueueProcessingRegistryStore(Protocol):
 # Storage Backend
 # --------------------------------------------------
 
-class TortoiseQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
+class TortoiseQueueProcessingRegistryBackend(IQueueProcessingRegistryStore):
 
     model = QueueProcessingRegistry
     model_mapper = TortoiseModelMapper
@@ -123,7 +123,7 @@ class TortoiseQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
             previous_latest_message, QueueProcessingRegistryResponseDTO
         )
 
-class BeanieQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
+class BeanieQueueProcessingRegistryBackend(IQueueProcessingRegistryStore):
     model = QueueProcessingRegistryDocument
     model_mapper = BeanieModelMapper
     
@@ -203,7 +203,7 @@ class BeanieQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
             doc, QueueProcessingRegistryResponseDTO
         )
 
-class InMemoryQueueProcessingRegistryStore(IQueueProcessingRegistryStore):
+class InMemoryQueueProcessingRegistryBackend(IQueueProcessingRegistryStore):
 
     def __init__(self):
         self.data_store: dict[Any, QueueProcessingRegistryResponseDTO] = {}
@@ -374,4 +374,7 @@ class QueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 # --------------------------------------------------
 
 def get_active_qpr_store():
-    return QueueProcessingRegistryStore(storage_backend=BeanieQueueProcessingRegistryStore())
+    return QueueProcessingRegistryStore(storage_backend=BeanieQueueProcessingRegistryBackend())
+
+def get_inmemory_qpr_store():
+    return QueueProcessingRegistryStore(storage_backend=InMemoryQueueProcessingRegistryBackend())

@@ -14,14 +14,14 @@ from models_src.models.queue_job_claim_registry_constants import (
     queue_processing_registry_one_claim_unique,
 )
 from models_src.models.queue_job_claim_registry_enums import QRegistryStat
-from models_src.repositories.queue_job_claim_registry import InMemoryQueueProcessingRegistryStore, \
+from models_src.repositories.queue_job_claim_registry import InMemoryQueueProcessingRegistryBackend, \
 	QueueProcessingRegistryStore
 from test.conftest import _make_queue_registry_request
 
 
 @pytest.mark.asyncio
 class TestInMemoryQueueProcessingRegistryStore:
-    inmemory_store = InMemoryQueueProcessingRegistryStore
+    inmemory_store = InMemoryQueueProcessingRegistryBackend
 
     async def test_save_sets_id_and_claimed_at(self):
         store = self.inmemory_store()

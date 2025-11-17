@@ -5,14 +5,14 @@ import pytest
 
 from models_src.dto.user import UserResponseDTO
 from models_src.repositories.user import (
-    BeanieUserStore,
+	BeanieUserBackend,
 )
 from test.conftest import _make_user_request
 
 
 @pytest.mark.asyncio
 class TestBeanieUserStore:
-    beanie_store = BeanieUserStore
+    beanie_store = BeanieUserBackend
 
     async def test_save_and_find_by_user_id(self, db_client):
         store = self.beanie_store()

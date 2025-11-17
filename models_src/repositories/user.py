@@ -34,7 +34,7 @@ class IUserStore(Protocol):
 # Storage Backend
 # --------------------------------------------------
 
-class TortoiseUserStore(IUserStore):
+class TortoiseUserBackend(IUserStore):
 
     model = User
     model_mapper = TortoiseModelMapper
@@ -71,7 +71,7 @@ class TortoiseUserStore(IUserStore):
     async def exists_by_user_id(self, user_id: str) -> bool:
         return await self.model.filter(user_id=user_id).exists()
 
-class BeanieUserStore(IUserStore):
+class BeanieUserBackend(IUserStore):
     model = UserDocument
     model_mapper = BeanieModelMapper
     
@@ -105,7 +105,7 @@ class BeanieUserStore(IUserStore):
     async def exists_by_user_id(self, user_id: str) -> bool:
         return await self.model.find(self.model.user_id == user_id).exists()
 
-class InMemorUserStore(IUserStore):
+class InMemorUserBackend(IUserStore):
     
     def __init__(self):
         self.data_store: dict[Any, UserResponseDTO] = {}
@@ -194,4 +194,7 @@ class UserStore(IUserStore):
 # --------------------------------------------------
 
 def get_active_user_store():
-    return UserStore(storage_backend=InMemorUserStore())
+    return UserStore(storage_backend=BeanieUserBackend())
+
+def get_inmemory_user_store():
+    return UserStore(storage_backend=InMemorUserBackend())

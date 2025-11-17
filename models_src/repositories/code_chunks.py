@@ -12,7 +12,7 @@ from models_src.dto.code_chunks import CodeChunksRequestDTO, CodeChunksResponseD
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.models.code_chunks import CodeChunks
 from models_src.models.code_chunks_document import CodeChunks as CodeChunksDocument, CodeChunksProjection, \
-    CodeChunksSearchProjection, EMBED_DIM
+    CodeChunksSearchProjection
 from models_src.models.db import PgVectorConnection
 
 
@@ -320,10 +320,6 @@ class InMemoryCodeChunksBackend(ICodeChunksStore):
     def __get_data_store(self):
         return self.data_store
     
-    def __set_data_store(self, data: List[CodeChunksResponseDTO]):
-        self.data_store = data
-        self.total_count = len(self.data_store)
-    
     def set_fake_data(self, fake_data: list[CodeChunksResponseDTO]):
         self.data_store.extend(fake_data)
         self.total_count = len(self.data_store)
@@ -503,3 +499,6 @@ class CodeChunksStore(ICodeChunksStore):
 
 def get_active_code_chunks_store():
     return CodeChunksStore(storage_backend=BeanieCodeChunksBackend())
+
+def get_inmemory_code_chunks_store():
+    return CodeChunksStore(storage_backend=InMemoryCodeChunksBackend())

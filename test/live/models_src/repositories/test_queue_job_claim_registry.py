@@ -3,7 +3,7 @@ import uuid
 from time import sleep
 
 import pytest
-from models_src.repositories.queue_job_claim_registry import BeanieQueueProcessingRegistryStore
+from models_src.repositories.queue_job_claim_registry import BeanieQueueProcessingRegistryBackend
 
 from models_src.dto.queue_job_claim_registry import QueueProcessingRegistryResponseDTO
 
@@ -13,7 +13,7 @@ from test.conftest import _make_queue_registry_request
 
 @pytest.mark.asyncio
 class TestBeanieQueueProcessingRegistryStore:
-    beanie_store = BeanieQueueProcessingRegistryStore
+    beanie_store = BeanieQueueProcessingRegistryBackend
 
     async def test_save_sets_id_and_claimed_at(self, db_client):
         store = self.beanie_store()

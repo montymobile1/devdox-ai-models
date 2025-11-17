@@ -368,3 +368,6 @@ class ApiKeyStore(IApiKeyStore):
 
 def get_active_api_key_store():
     return ApiKeyStore(storage_backend=BeanieApiKeyBackend())
+
+def get_inmemory_api_key_store():
+    return ApiKeyStore(storage_backend=InMemoryApiKeyBackend())
