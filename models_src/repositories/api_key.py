@@ -243,7 +243,7 @@ class InMemoryApiKeyBackend(IApiKeyStore):
         data: list = self.__get_data_store(user_id=user_id)
 
         for index, value in enumerate(data):
-            if value.id == api_key_id and value.is_active:
+            if value.api_key_id == api_key_id and value.is_active:
                 value.is_active = is_active
                 updated += 1
         return updated
