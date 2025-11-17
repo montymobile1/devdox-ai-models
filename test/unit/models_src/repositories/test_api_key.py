@@ -153,22 +153,24 @@ class TestInMemoryApiKeyBackend:
         store = self.inmemory_store()
         
         user_id = "user-update-active"
-
+        
+        api_key_uuid = uuid.uuid4()
+        
         saved = await store.save(
-            _make_api_key_request(user_id=user_id, api_key="hash-update", masked_api_key="****upd", is_active=True)
+            _make_api_key_request(user_id=user_id, api_key=str(api_key_uuid), masked_api_key="****upd", is_active=True)
         )
 
         updated_count = await store.update_is_active_by_user_id_and_api_key_id(
             user_id=user_id,
-            api_key_id=saved.api_key,
+            api_key_id=uuid.UUID(saved.api_key),
             is_active=False,
         )
 
         assert updated_count == 1
 
-        assert await store.find_by_active_api_key("hash-update") is None
+        assert await store.find_by_active_api_key(str(api_key_uuid)) is None
 
-        inactive = await store.find_by_active_api_key("hash-update", is_active=False)
+        inactive = await store.find_by_active_api_key(str(api_key_uuid), is_active=False)
         assert inactive is not None
         assert inactive.is_active is False
 
