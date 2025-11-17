@@ -1,5 +1,11 @@
+import datetime
 import inspect
+import uuid
 from typing import Any, Callable, Dict, List, Tuple, Union
+
+from models_src.dto.git_label import GitLabelResponseDTO
+
+from models_src.dto.user import UserResponseDTO
 
 from models_src.repositories.api_key import ApiKeyStore
 from models_src.repositories.code_chunks import CodeChunksStore
@@ -165,3 +171,25 @@ class GenericStubStore(_StubStore):
     Generic stub
     """
     pass
+
+def make_fake_user(user_id="user123", email="test@example.com", encryption_salt="xyz"):
+    return UserResponseDTO(
+        id=uuid.UUID("dd0551f4-2164-4739-bf3f-9ccd1644ca75"),
+        user_id=user_id,
+        email=email,
+        encryption_salt=encryption_salt,
+    )
+
+def make_fake_git_label(**overrides) -> GitLabelResponseDTO:
+    now = datetime.datetime.now()
+    return GitLabelResponseDTO(
+        id=overrides.get("id", uuid.uuid4()),
+        user_id=overrides.get("user_id", "fake-user"),
+        label=overrides.get("label", "fake-label"),
+        git_hosting=overrides.get("git_hosting", "github"),
+        username=overrides.get("username", "fakeuser"),
+        token_value=overrides.get("token_value", "real-token"),
+        masked_token=overrides.get("masked_token", "****1234"),
+        created_at=overrides.get("created_at", now),
+        updated_at=overrides.get("updated_at", now),
+    )

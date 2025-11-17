@@ -31,7 +31,7 @@ from .repositories.queue_job_claim_registry import get_active_qpr_store, \
 	InMemoryQueueProcessingRegistryBackend, IQueueProcessingRegistryStore, \
 	QueueProcessingRegistryStore
 from .repositories.repo import get_active_repo_store, InMemoryRepoBackend, IRepoStore, RepoStore
-from .repositories.test_doubles import GenericFakeStore, GenericStubStore
+from .repositories.test_doubles import GenericFakeStore, GenericStubStore, make_fake_git_label, make_fake_user
 from .repositories.user import get_active_user_store, InMemoryUserBackend, IUserStore, UserStore
 
 __all__ = [
@@ -46,7 +46,7 @@ __all__ = [
 	"CodeChunksResponseDTO", "CodeChunksRequestDTO", "ICodeChunksStore", "EMBED_DIM", "CodeChunksStore", "InMemoryCodeChunksBackend", "get_active_code_chunks_store",
 	
 	# git_label
-	"GitLabelResponseDTO", "GitLabelRequestDTO", "ILabelStore", "GitLabelStore", "InMemoryGitLabelBackend", "get_active_git_label_store",
+	"GitLabelResponseDTO", "GitLabelRequestDTO", "ILabelStore", "GitLabelStore", "InMemoryGitLabelBackend", "get_active_git_label_store", "make_fake_git_label",
 	
 	# queue_processing_registry
 	"QueueProcessingRegistryResponseDTO", "QueueProcessingRegistryRequestDTO", "QRegistryStat",
@@ -58,7 +58,7 @@ __all__ = [
 	"get_active_repo_store",
 	
 	# user
-	"UserResponseDTO", "UserRequestDTO", "IUserStore", "UserStore", "InMemoryUserBackend", "get_active_user_store",
+	"UserResponseDTO", "UserRequestDTO", "IUserStore", "UserStore", "InMemoryUserBackend", "get_active_user_store", "make_fake_user",
 	
 	# test doubles
 	"GenericFakeStore", "GenericStubStore",
