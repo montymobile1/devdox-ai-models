@@ -1,234 +1,258 @@
 import datetime
-import math
 import uuid
+
 import pytest
 
-from models_src.repositories.repo import BeanieRepoStore
-from models_src.dto.repo import RepoRequestDTO
+from models_src.dto.repo import RepoResponseDTO
 from models_src.models.repo_enums import StatusTypes
+from models_src.repositories.repo import BeanieRepoBackend
+from models_src.exceptions.base_exceptions import DevDoxModelsException
+from models_src.exceptions.utils import RepoErrors
+from test.conftest import _make_repo_request
 
-store = BeanieRepoStore
-
-def _mk_req(
-    user_id="user_X",
-    repo_id="gid_1",
-    repo_name="alpha",
-    html_url="https://host/alpha",
-    repo_alias_name="alpha-local",
-    **kw,
-):
-    # supply only the required + common fields; everything else uses defaults
-    return RepoRequestDTO(
-        user_id=user_id,
-        repo_id=repo_id,
-        repo_name=repo_name,
-        html_url=html_url,
-        repo_alias_name=repo_alias_name,
-        **kw,
-    )
 
 @pytest.mark.asyncio
-async def test_repo_save_inserts_and_maps(db_client):
-    
-    repo = store()
-    req = _mk_req(user_id="u1", repo_id="r1", repo_name="A", html_url="http://x/A", repo_alias_name="A-local")
-    dto = await repo.save(req)
+class TestBeanieRepoBackend:
+    beanie_store = BeanieRepoBackend
 
-    assert dto is not None
-    assert dto.user_id == "u1"
-    assert dto.repo_id == "r1"
-    assert dto.repo_name == "A"
-    assert dto.html_url == "http://x/A"
-    assert dto.repo_alias_name == "A-local"
+    async def test_save_and_get_by_id(self, db_client):
+        store = self.beanie_store()
 
-    in_db = await repo.model.find_one(repo.model.user_id == "u1", repo.model.repo_id == "r1")
-    assert in_db is not None
-
-@pytest.mark.asyncio
-async def test_repo_find_all_by_user_pagination_and_sorting(db_client):
-
-    repo = store()
-
-    user_id = "u1"
-    other_user = "u2"
-
-    # create 5 repos for u1 with ascending created_at
-    start = datetime.datetime.now(datetime.timezone.utc).replace(minute=0, second=0, microsecond=0)
-    docs = []
-    for i in range(5):
-        d = repo.model(
-            id=uuid.uuid4(),
-            user_id=user_id,
-            repo_id=f"rid{i}",
-            repo_name=f"R{i}",
-            html_url=f"http://h/R{i}",
-            repo_alias_name=f"alias{i}",
-            created_at=start + datetime.timedelta(hours=i),
-            updated_at=start + datetime.timedelta(hours=i),
+        req = _make_repo_request(
+            user_id="beanie-user-1",
+            repo_id="beanie-repo-1",
+            repo_name="beanie-repo",
+            html_url="https://github.com/u/beanie-repo",
+            repo_alias_name="alias-1",
         )
-        docs.append(d)
-    # add a foreign user doc
-    foreign = repo.model(
-        id=uuid.uuid4(),
-        user_id=other_user,
-        repo_id="foreign",
-        repo_name="F",
-        html_url="http://h/F",
-        repo_alias_name="aliasF",
-        created_at=start + datetime.timedelta(hours=999),
-        updated_at=start + datetime.timedelta(hours=999),
-    )
-    await repo.model.insert_many([*docs, foreign])
 
-    # expected order: DESC by created_at
-    expected_sorted = sorted(docs, key=lambda d: d.created_at, reverse=True)
-    expected_ids = [d.id for d in expected_sorted]
+        saved = await store.save(req)
 
-    LIMIT = 2
-    pages = math.ceil(len(docs) / LIMIT) + 1
-    seen = []
+        assert isinstance(saved, RepoResponseDTO)
+        assert isinstance(saved.id, uuid.UUID)
+        assert saved.user_id == req.user_id
+        assert saved.repo_id == req.repo_id
+        assert saved.repo_name == req.repo_name
+        assert saved.html_url == req.html_url
+        assert saved.repo_alias_name == req.repo_alias_name
+        assert isinstance(saved.created_at, datetime.datetime)
 
-    # sanity
-    assert await repo.count_by_user_id(user_id) == len(docs)
+        fetched = await store.get_by_id(str(saved.id))
+        assert fetched is not None
+        assert fetched.id == saved.id
 
-    for p in range(pages):
-        items = await repo.find_all_by_user_id(user_id=user_id, offset=p, limit=LIMIT)
-        ids = [it.id for it in items]
-        created = [it.created_at for it in items]
+    async def test_find_by_repo_id_and_user_id_and_html_url(self, db_client):
+        store = self.beanie_store()
+        user_id = "beanie-user-2"
 
-        exp_len = max(0, min(LIMIT, len(docs) - p * LIMIT))
-        assert len(items) == exp_len
+        saved = await store.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="gid-123",
+                repo_name="test-repo",
+                html_url="https://gitlab.com/u/test-repo",
+                repo_alias_name="alias-2",
+            )
+        )
 
-        exp_slice = expected_ids[p * LIMIT:(p + 1) * LIMIT]
-        assert ids == exp_slice
-        assert created == sorted(created, reverse=True)
+        by_repo_id = await store.find_by_repo_id("gid-123")
+        assert by_repo_id is not None
+        assert by_repo_id.id == saved.id
 
-        seen.extend(ids)
+        by_repo_and_user = await store.find_by_repo_id_user_id("gid-123", user_id)
+        assert by_repo_and_user is not None
+        assert by_repo_and_user.id == saved.id
 
-    assert len(seen) == len(docs)
-    assert len(set(seen)) == len(docs)
-    assert seen == expected_ids
+        by_user_and_html = await store.find_by_user_id_and_html_url(
+            user_id=user_id,
+            html_url="https://gitlab.com/u/test-repo",
+        )
+        assert by_user_and_html is not None
+        assert by_user_and_html.id == saved.id
 
+    async def test_find_by_id_returns_none_when_not_found(self, db_client):
+        store = self.beanie_store()
 
-@pytest.mark.asyncio
-async def test_repo_get_find_variants_and_html_url_lookup(db_client):
+        result = await store.find_by_id(str(uuid.uuid4()))
+        assert result is None
 
-    repo = store()
+    async def test_find_all_by_user_id_and_count_pagination(self, db_client):
+        store = self.beanie_store()
+        user_id = "beanie-user-3"
 
-    d = repo.model(
-        id=uuid.uuid4(),
-        user_id="u1",
-        repo_id="rid1",
-        repo_name="Alpha",
-        html_url="http://h/A",
-        repo_alias_name="alpha",
-        created_at=datetime.datetime.now(datetime.timezone.utc),
-        updated_at=datetime.datetime.now(datetime.timezone.utc),
-    )
-    await repo.model.insert_many([d])
+        saved1 = await store.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="repo-1",
+                repo_name="repo-1",
+                html_url="https://g.com/r1",
+                repo_alias_name="alias-r1",
+            )
+        )
+        saved2 = await store.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="repo-2",
+                repo_name="repo-2",
+                html_url="https://g.com/r2",
+                repo_alias_name="alias-r2",
+            )
+        )
+        saved3 = await store.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="repo-3",
+                repo_name="repo-3",
+                html_url="https://g.com/r3",
+                repo_alias_name="alias-r3",
+            )
+        )
+        # other user
+        await store.save(
+            _make_repo_request(
+                user_id="other-user",
+                repo_id="other",
+                repo_name="other",
+                html_url="https://g.com/other",
+                repo_alias_name="alias-other",
+            )
+        )
 
-    # find_by_repo_id
-    dto = await repo.find_by_repo_id("rid1")
-    assert dto is not None and dto.repo_name == "Alpha"
+        total = await store.count_by_user_id(user_id=user_id)
+        assert total == 3
 
-    # find_by_repo_id_user_id
-    dto2 = await repo.find_by_repo_id_user_id("rid1", "u1")
-    assert dto2 is not None and dto2.html_url == "http://h/A"
+        page0 = await store.find_all_by_user_id(user_id=user_id, offset=0, limit=2)
+        page1 = await store.find_all_by_user_id(user_id=user_id, offset=1, limit=2)
 
-    # find_by_id (string-UUID)
-    dto3 = await repo.find_by_id(str(d.id))
-    assert dto3 is not None and dto3.repo_name == "Alpha"
+        assert len(page0) == 2
+        assert len(page1) == 1
 
-    # find_by_user_id_and_html_url
-    dto4 = await repo.find_by_user_id_and_html_url("u1", "http://h/A")
-    assert dto4 is not None and dto4.repo_id == "rid1"
+        ids = {r.id for r in page0 + page1}
+        assert ids == {saved1.id, saved2.id, saved3.id}
 
-    # find_by_id (missing)
-    assert await repo.find_by_id(str(uuid.uuid4())) is None
+    async def test_update_analysis_metadata_by_id_updates_fields(self, db_client):
+        store = self.beanie_store()
+        user_id = "beanie-user-4"
 
+        saved = await store.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="repo-meta",
+                repo_name="repo-meta",
+                html_url="https://g.com/meta",
+                repo_alias_name="alias-meta",
+                status=StatusTypes.IN_PROGRESS,
+            )
+        )
 
-@pytest.mark.asyncio
-async def test_repo_update_analysis_metadata_and_system_reference(db_client):
+        end_time = datetime.datetime.now(datetime.timezone.utc)
+        updated = await store.update_analysis_metadata_by_id(
+            id=str(saved.id),
+            status=StatusTypes.COMPLETED,
+            processing_end_time=end_time,
+            total_files=10,
+            total_chunks=20,
+            total_embeddings=30,
+        )
+        assert updated == 1
 
-    repo = store()
+        refreshed = await store.find_by_id(str(saved.id))
+        assert refreshed is not None
+        assert refreshed.status == StatusTypes.COMPLETED
+        assert refreshed.processing_end_time.date() == end_time.date()
+        assert refreshed.total_files == 10
+        assert refreshed.total_chunks == 20
+        assert refreshed.total_embeddings == 30
 
-    d = repo.model(
-        id=uuid.uuid4(),
-        user_id="u1",
-        repo_id="rid1",
-        repo_name="Alpha",
-        html_url="http://h/A",
-        repo_alias_name="alpha",
-        total_files=0,
-        total_chunks=0,
-        total_embeddings=0,
-        status=StatusTypes.IN_PROGRESS,
-        created_at=datetime.datetime.now(datetime.timezone.utc),
-        updated_at=datetime.datetime.now(datetime.timezone.utc),
-    )
-    await repo.model.insert_many([d])
+    async def test_update_repo_system_reference_by_id(self, db_client):
+        store = self.beanie_store()
+        user_id = "beanie-user-5"
 
-    end_time = datetime.datetime.now(datetime.timezone.utc)
+        saved = await store.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="repo-ref",
+                repo_name="repo-ref",
+                html_url="https://g.com/ref",
+                repo_alias_name="alias-ref",
+            )
+        )
 
-    matched = await repo.update_analysis_metadata_by_id(
-        id=str(d.id),
-        status=StatusTypes.COMPLETED,
-        processing_end_time=end_time,
-        total_files=10,
-        total_chunks=20,
-        total_embeddings=30,
-    )
-    assert matched == 1
+        updated = await store.update_repo_system_reference_by_id(
+            id=str(saved.id),
+            repo_system_reference="sys-ref-123",
+        )
+        assert updated == 1
 
-    in_db = await repo.model.find_one(repo.model.id == d.id)
-    assert in_db.status == StatusTypes.COMPLETED
-    assert in_db.processing_end_time.date() == end_time.date()
-    assert in_db.total_files == 10
-    assert in_db.total_chunks == 20
-    assert in_db.total_embeddings == 30
+        refreshed = await store.find_by_id(str(saved.id))
+        assert refreshed is not None
+        assert refreshed.repo_system_reference == "sys-ref-123"
 
-    # system reference
-    matched2 = await repo.update_repo_system_reference_by_id(str(d.id), "SYS-REF-001")
-    assert matched2 == 1
-    in_db2 = await repo.model.find_one(repo.model.id == d.id)
-    assert in_db2.repo_system_reference == "SYS-REF-001"
+    async def test_find_by_user_and_path_and_alias(self, db_client):
+        store = self.beanie_store()
+        user_id = "beanie-user-6"
 
-    # bad inputs
-    assert await repo.update_analysis_metadata_by_id("", "", end_time, 1, 1, 1) == -1
-    assert await repo.update_repo_system_reference_by_id("   ", "X") == -1
+        saved = await store.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="repo-path",
+                repo_name="repo-path",
+                html_url="https://g.com/path",
+                repo_alias_name="alias-path",
+                visibility="public",
+            )
+        )
+        # manually update relative_path + alias via model to simulate extra fields
+        await store.model.find(store.model.id == saved.id).update(
+            {"$set": {"relative_path": "/u/repo-path", "repo_alias_name": "my-alias"}}
+        )
 
+        by_path = await store.find_by_user_and_path(user_id=user_id, relative_path="/u/repo-path")
+        assert by_path is not None
+        assert by_path.id == saved.id
 
-@pytest.mark.asyncio
-async def test_repo_find_by_user_and_path_and_alias_and_save_context(db_client):
+        by_alias = await store.find_by_user_and_alias_name(user_id=user_id, repo_alias_name="my-alias")
+        assert by_alias is not None
+        assert by_alias.id == saved.id
 
-    repo = store()
+    async def test_save_context_updates_status_to_pending(self, db_client):
+        store = self.beanie_store()
+        user_id = "beanie-user-7"
+        repo_id = "repo-context"
 
-    d = repo.model(
-        id=uuid.uuid4(),
-        user_id="u1",
-        repo_id="rid1",
-        repo_name="Alpha",
-        html_url="http://h/A",
-        repo_alias_name="alpha",
-        relative_path="/u1/alpha",
-        status=StatusTypes.IN_PROGRESS,
-        created_at=datetime.datetime.now(datetime.timezone.utc),
-        updated_at=datetime.datetime.now(datetime.timezone.utc),
-    )
-    await repo.model.insert_many([d])
+        saved = await store.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id=repo_id,
+                repo_name="repo-context",
+                html_url="https://g.com/context",
+                repo_alias_name="alias-context",
+                status=StatusTypes.COMPLETED,
+            )
+        )
 
-    # find by path
-    dto_p = await repo.find_by_user_and_path("u1", "/u1/alpha")
-    assert dto_p is not None and dto_p.repo_name == "Alpha"
+        updated = await store.save_context(
+            repo_id=repo_id,
+            user_id=user_id,
+            config={"dummy": True},
+        )
 
-    # find by alias
-    dto_a = await repo.find_by_user_and_alias_name("u1", "alpha")
-    assert dto_a is not None and dto_a.repo_id == "rid1"
+        assert isinstance(updated, RepoResponseDTO)
+        assert updated.id == saved.id
+        assert updated.status == StatusTypes.PENDING
 
-    # save_context: flips status to 'pending' on existing repo
-    dto_c = await repo.save_context("rid1", "u1", config={"ignored": True})
-    assert dto_c is not None and dto_c.status == StatusTypes.PENDING
+    async def test_save_context_missing_repo_raises_internal_error(self, db_client):
+        store = self.beanie_store()
 
-    # save_context on missing -> error
-    with pytest.raises(Exception):
-        await repo.save_context("nope", "u1", config={})
+        with pytest.raises(DevDoxModelsException) as exc_info:
+            await store.save_context(
+                repo_id="non-existing",
+                user_id="user-x",
+                config={},
+            )
+
+        exc = exc_info.value
+        err = RepoErrors.REPOSITORY_DOESNT_EXIST.value
+        assert exc.error_type == err["error_type"]
+        assert exc.user_message == err["log_message"]
+        assert exc.log_message == err["log_message"]

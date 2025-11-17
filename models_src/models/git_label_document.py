@@ -2,7 +2,7 @@ import uuid
 
 import pymongo
 from beanie import Document, Indexed
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from models_src.models.document_extra.timestamp import TimestampAuditMixin
 
@@ -55,5 +55,11 @@ class GitLabel(TimestampAuditMixin, Document):
 
     
 class GitLabelProjection(BaseModel):
-    id: uuid.UUID
+    id: uuid.UUID = Field(alias="_id")
     git_hosting: str
+
+    # optional, but nice to have:
+    model_config = ConfigDict(
+        populate_by_name=True,  # can also construct with id=...
+        extra="ignore",         # ignore any extra fields Mongo might send
+    )

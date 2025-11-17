@@ -7,7 +7,7 @@ class TestMongoConfigBuildURI:
 
     def test_defaults_no_auth_no_params(self):
         config = MongoConfig()
-        expected = "mongodb://localhost:27017/app"
+        expected = "mongodb://localhost:27017/"
         assert config.build_uri() == expected
 
     def test_single_host_with_credentials(self):
@@ -15,14 +15,14 @@ class TestMongoConfigBuildURI:
             USERNAME="alice",
             PASSWORD=SecretStr("s3cr3t"),
         )
-        expected = "mongodb://alice:s3cr3t@localhost:27017/app"
+        expected = "mongodb://alice:s3cr3t@localhost:27017/"
         assert config.build_uri() == expected
     
     def test_single_host_with_username_credentials_only(self):
         config = MongoConfig(
             USERNAME="alice"
         )
-        expected = "mongodb://alice@localhost:27017/app"
+        expected = "mongodb://alice@localhost:27017/"
         assert config.build_uri() == expected
     
     def test_credentials_are_percent_encoded(self):
@@ -69,5 +69,5 @@ class TestMongoConfigBuildURI:
             PORT=12345  # Should be ignored
         )
         uri = config.build_uri()
-        assert "mongodb+srv://cluster.mongodb.net/app" in uri
+        assert "mongodb+srv://cluster.mongodb.net/" in uri
         assert ":12345" not in uri

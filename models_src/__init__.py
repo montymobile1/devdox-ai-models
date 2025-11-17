@@ -23,23 +23,14 @@ from .models.repo_enums import QueueJobType, StatusTypes
 from .models.queue_job_claim_registry_constants import queue_processing_registry_one_claim_unique
 
 # repositories
-from .repositories.api_key import BeanieApiKeyStore, get_active_api_key_store, IApiKeyStore
-from .repositories.code_chunks import BeanieCodeChunksStore, get_active_code_chunks_store, ICodeChunksStore
-from .repositories.git_label import BeanieGitLabelStore, get_active_git_label_store, ILabelStore
-from .repositories.queue_job_claim_registry import BeanieQueueProcessingRegistryStore, get_active_qpr_store, \
-	IQueueProcessingRegistryStore
-from .repositories.repo import BeanieRepoStore, get_active_repo_store, IRepoStore
-from .repositories.user import BeanieUserStore, get_active_user_store, IUserStore
-
-# test_doubles
-from .test_doubles.repositories.api_key import FakeApiKeyStore, StubApiKeyStore
-from .test_doubles.repositories.code_chunks import FakeCodeChunksStore, StubCodeChunksStore
-from .test_doubles.repositories.git_label import FakeGitLabelStore, make_fake_git_label, StubGitLabelStore
-from .test_doubles.repositories.queue_job_claim_registry import FakeQueueProcessingRegistryStore, \
-	StubQueueProcessingRegistryStore
-from .test_doubles.repositories.repo import FakeRepoStore, StubRepoStore
-from .test_doubles.repositories.user import FakeUserStore, make_fake_user, StubUserStore
-
+from .repositories.api_key import ApiKeyStore, get_active_api_key_store, IApiKeyStore
+from .repositories.code_chunks import BeanieCodeChunksBackend, CodeChunksStore, get_active_code_chunks_store, ICodeChunksStore
+from .repositories.git_label import get_active_git_label_store, GitLabelStore, ILabelStore
+from .repositories.queue_job_claim_registry import get_active_qpr_store, IQueueProcessingRegistryStore, \
+	QueueProcessingRegistryStore
+from .repositories.repo import get_active_repo_store, IRepoStore, RepoStore
+from .repositories.test_doubles import GenericFakeStore, GenericStubStore
+from .repositories.user import get_active_user_store, IUserStore, UserStore
 
 __all__ = [
 	
@@ -47,29 +38,27 @@ __all__ = [
 	"MongoConfig", "init_via_uri",
 	
 	# api_key
-    "APIKeyResponseDTO", "APIKeyRequestDTO", "FakeApiKeyStore", "StubApiKeyStore", "IApiKeyStore", "BeanieApiKeyStore",
-	"get_active_api_key_store",
+    "APIKeyResponseDTO", "APIKeyRequestDTO", "IApiKeyStore", "ApiKeyStore", "get_active_api_key_store",
 	
 	# code_chunks
-	"CodeChunksResponseDTO", "CodeChunksRequestDTO", "ICodeChunksStore", "BeanieCodeChunksStore", "FakeCodeChunksStore",
-	"StubCodeChunksStore", "get_active_code_chunks_store", "EMBED_DIM",
+	"CodeChunksResponseDTO", "CodeChunksRequestDTO", "ICodeChunksStore", "EMBED_DIM", "CodeChunksStore", "get_active_code_chunks_store",
 	
 	# git_label
-	"GitLabelResponseDTO", "GitLabelRequestDTO", "ILabelStore", "BeanieGitLabelStore", "FakeGitLabelStore",
-	"StubGitLabelStore", "make_fake_git_label", "get_active_git_label_store",
+	"GitLabelResponseDTO", "GitLabelRequestDTO", "ILabelStore", "GitLabelStore", "get_active_git_label_store",
 	
 	# queue_processing_registry
 	"QueueProcessingRegistryResponseDTO", "QueueProcessingRegistryRequestDTO", "QRegistryStat",
-	"IQueueProcessingRegistryStore", "BeanieQueueProcessingRegistryStore", "FakeQueueProcessingRegistryStore",
-	"StubQueueProcessingRegistryStore", "queue_processing_registry_one_claim_unique", "get_active_qpr_store",
+	"IQueueProcessingRegistryStore", "queue_processing_registry_one_claim_unique", "QueueProcessingRegistryStore", "get_active_qpr_store",
 	
 	# repo
-	"GitHosting", "RepoResponseDTO", "RepoRequestDTO", "QueueJobType", "StatusTypes", "IRepoStore", "BeanieRepoStore",
-	"FakeRepoStore", "StubRepoStore", "get_active_repo_store",
+	"GitHosting", "RepoResponseDTO", "RepoRequestDTO", "QueueJobType", "StatusTypes", "IRepoStore", "RepoStore",
+	"get_active_repo_store",
 	
 	# user
-	"UserResponseDTO", "UserRequestDTO", "IUserStore", "BeanieUserStore", "FakeUserStore", "StubUserStore", "make_fake_user",
-	"get_active_user_store",
+	"UserResponseDTO", "UserRequestDTO", "IUserStore", "UserStore", "get_active_user_store",
+	
+	# test doubles
+	"GenericFakeStore", "GenericStubStore",
 	
 	# exceptions & error handling
 	"DevDoxModelsException", "JobAlreadyClaimed", "exception_constants", "RepoErrors", "GitLabelErrors", "internal_error"
