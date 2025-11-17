@@ -4,6 +4,8 @@ import datetime
 import uuid
 
 import pytest
+
+from models_src import GenericFakeStore
 from models_src.dto.queue_job_claim_registry import QueueProcessingRegistryResponseDTO
 from pymongo.errors import DuplicateKeyError
 
@@ -21,11 +23,16 @@ from test.conftest import _make_queue_registry_request
 
 @pytest.mark.asyncio
 class TestInMemoryQueueProcessingRegistryStore:
-    inmemory_store = InMemoryQueueProcessingRegistryBackend
-
+    InMemo = InMemoryQueueProcessingRegistryBackend
+    FakeStore = QueueProcessingRegistryStore
+    
     async def test_save_sets_id_and_claimed_at(self):
-        store = self.inmemory_store()
-
+        
+        in_mem = self.InMemo()
+        fake = GenericFakeStore(
+            base_store=self.FakeStore(storage_backend=in_mem)
+        )
+        
         req = _make_queue_registry_request(
             message_id="mem-msg-1",
             queue_name="mem-queue",
@@ -34,7 +41,7 @@ class TestInMemoryQueueProcessingRegistryStore:
             claimed_by="worker-1",
         )
 
-        saved = await store.save(req)
+        saved = await fake.save(req)
 
         assert isinstance(saved, QueueProcessingRegistryResponseDTO)
         assert isinstance(saved.id, uuid.UUID)
@@ -43,20 +50,24 @@ class TestInMemoryQueueProcessingRegistryStore:
         assert saved.status == req.status
         assert saved.step == req.step
         assert isinstance(saved.claimed_at, datetime.datetime)
-        assert store.total_count == 1
+        assert in_mem.total_count == 1
 
     async def test_update_status_or_message_id_by_id_updates_and_returns_1(self):
-        store = self.inmemory_store()
-
+        
+        in_mem = self.InMemo()
+        fake = GenericFakeStore(
+            base_store=self.FakeStore(storage_backend=in_mem)
+        )
+        
         req = _make_queue_registry_request(
             message_id="mem-msg-update",
             queue_name="mem-queue-update",
             step="step-1",
             status=QRegistryStat.PENDING,
         )
-        saved = await store.save(req)
+        saved = await fake.save(req)
 
-        updated = await store.update_status_or_message_id_by_id(
+        updated = await fake.update_status_or_message_id_by_id(
             id=str(saved.id),
             status=QRegistryStat.IN_PROGRESS,
             message_id="mem-msg-updated",
@@ -64,24 +75,31 @@ class TestInMemoryQueueProcessingRegistryStore:
         assert updated == 1
 
         # Directly peek into data_store
-        data = store._InMemoryQueueProcessingRegistryStore__get_data_store(id=str(saved.id))
+        data = in_mem.data_store[saved.id]
         assert data is not None
         assert data.status == QRegistryStat.IN_PROGRESS
         assert data.message_id == "mem-msg-updated"
 
     async def test_update_status_or_message_id_by_id_returns_zero_for_missing_id(self):
-        store = self.inmemory_store()
+        
+        fake = GenericFakeStore(
+            base_store=self.FakeStore(storage_backend=self.InMemo())
+        )
 
-        updated = await store.update_status_or_message_id_by_id(
+        updated = await fake.update_status_or_message_id_by_id(
             id=str(uuid.uuid4()),
             status=QRegistryStat.PENDING,
         )
         assert updated == 0
 
     async def test_update_step_by_id_updates_step(self):
-        store = self.inmemory_store()
+        
+        in_memo = self.InMemo()
+        fake = GenericFakeStore(
+            base_store=self.FakeStore(storage_backend=in_memo)
+        )
 
-        saved = await store.save(
+        saved = await fake.save(
             _make_queue_registry_request(
                 message_id="mem-msg-step",
                 queue_name="mem-queue-step",
@@ -90,23 +108,29 @@ class TestInMemoryQueueProcessingRegistryStore:
             )
         )
 
-        updated = await store.update_step_by_id(id=str(saved.id), step="step-2")
+        updated = await fake.update_step_by_id(id=str(saved.id), step="step-2")
         assert updated == 1
 
-        data = store._InMemoryQueueProcessingRegistryStore__get_data_store(id=str(saved.id))
+        data = in_memo.data_store[saved.id]
         assert data is not None
         assert data.step == "step-2"
 
     async def test_update_step_by_id_missing_id_returns_zero(self):
-        store = self.inmemory_store()
+        fake = GenericFakeStore(
+            base_store=self.FakeStore(storage_backend=self.InMemo())
+        )
 
-        updated = await store.update_step_by_id(id=str(uuid.uuid4()), step="step-2")
+        updated = await fake.update_step_by_id(id=str(uuid.uuid4()), step="step-2")
         assert updated == 0
 
     async def test_update_status_and_step_by_id_updates_both(self):
-        store = self.inmemory_store()
+        
+        in_memo = self.InMemo()
+        fake = GenericFakeStore(
+            base_store=self.FakeStore(storage_backend=in_memo)
+        )
 
-        saved = await store.save(
+        saved = await fake.save(
             _make_queue_registry_request(
                 message_id="mem-msg-both",
                 queue_name="mem-queue-both",
@@ -115,23 +139,28 @@ class TestInMemoryQueueProcessingRegistryStore:
             )
         )
 
-        updated = await store.update_status_and_step_by_id(
+        updated = await fake.update_status_and_step_by_id(
             id=str(saved.id),
             status=QRegistryStat.COMPLETED,
             step="step-final",
         )
         assert updated == 1
 
-        data = store._InMemoryQueueProcessingRegistryStore__get_data_store(id=str(saved.id))
+        data = in_memo.data_store[saved.id]
         assert data is not None
         assert data.status == QRegistryStat.COMPLETED
         assert data.step == "step-final"
 
     async def test_find_previous_latest_message_by_message_id_returns_first_match(self):
-        store = self.inmemory_store()
+        
+        in_memo = self.InMemo()
+        fake = GenericFakeStore(
+            base_store=self.FakeStore(storage_backend=in_memo)
+        )
+        
         msg_id = "mem-msg-prev"
 
-        first = await store.save(
+        first = await fake.save(
             _make_queue_registry_request(
                 message_id=msg_id,
                 queue_name="q1",
@@ -139,7 +168,7 @@ class TestInMemoryQueueProcessingRegistryStore:
                 status=QRegistryStat.PENDING,
             )
         )
-        await store.save(
+        await fake.save(
             _make_queue_registry_request(
                 message_id=msg_id,
                 queue_name="q1",
@@ -148,7 +177,7 @@ class TestInMemoryQueueProcessingRegistryStore:
             )
         )
 
-        result = await store.find_previous_latest_message_by_message_id(message_id=msg_id)
+        result = await fake.find_previous_latest_message_by_message_id(message_id=msg_id)
         assert result is not None
         assert result.message_id == msg_id
         # current in-memory implementation returns the first one it encounters
