@@ -23,16 +23,16 @@ from .models.repo_enums import QueueJobType, StatusTypes
 from .models.queue_job_claim_registry_constants import queue_processing_registry_one_claim_unique
 
 # repositories
-from .repositories.api_key import ApiKeyStore, get_active_api_key_store, get_inmemory_api_key_store, IApiKeyStore
+from .repositories.api_key import ApiKeyStore, get_active_api_key_store, IApiKeyStore, InMemoryApiKeyBackend
 from .repositories.code_chunks import BeanieCodeChunksBackend, CodeChunksStore, get_active_code_chunks_store, \
-	get_inmemory_code_chunks_store, ICodeChunksStore
-from .repositories.git_label import get_active_git_label_store, get_inmemory_git_label_store, GitLabelStore, ILabelStore
-from .repositories.queue_job_claim_registry import get_active_qpr_store, get_inmemory_qpr_store, \
-	IQueueProcessingRegistryStore, \
+	ICodeChunksStore, InMemoryCodeChunksBackend
+from .repositories.git_label import get_active_git_label_store, GitLabelStore, ILabelStore, InMemoryGitLabelBackend
+from .repositories.queue_job_claim_registry import get_active_qpr_store, \
+	InMemoryQueueProcessingRegistryBackend, IQueueProcessingRegistryStore, \
 	QueueProcessingRegistryStore
-from .repositories.repo import get_active_repo_store, get_inmemory_repo_store, IRepoStore, RepoStore
+from .repositories.repo import get_active_repo_store, InMemoryRepoBackend, IRepoStore, RepoStore
 from .repositories.test_doubles import GenericFakeStore, GenericStubStore
-from .repositories.user import get_active_user_store, get_inmemory_user_store, IUserStore, UserStore
+from .repositories.user import get_active_user_store, InMemoryUserBackend, IUserStore, UserStore
 
 __all__ = [
 	
@@ -40,25 +40,25 @@ __all__ = [
 	"MongoConfig", "init_via_uri",
 	
 	# api_key
-    "APIKeyResponseDTO", "APIKeyRequestDTO", "IApiKeyStore", "ApiKeyStore", "get_inmemory_api_key_store", "get_active_api_key_store",
+    "APIKeyResponseDTO", "APIKeyRequestDTO", "IApiKeyStore", "ApiKeyStore", "InMemoryApiKeyBackend", "get_active_api_key_store",
 	
 	# code_chunks
-	"CodeChunksResponseDTO", "CodeChunksRequestDTO", "ICodeChunksStore", "EMBED_DIM", "CodeChunksStore", "get_inmemory_code_chunks_store", "get_active_code_chunks_store",
+	"CodeChunksResponseDTO", "CodeChunksRequestDTO", "ICodeChunksStore", "EMBED_DIM", "CodeChunksStore", "InMemoryCodeChunksBackend", "get_active_code_chunks_store",
 	
 	# git_label
-	"GitLabelResponseDTO", "GitLabelRequestDTO", "ILabelStore", "GitLabelStore", "get_inmemory_git_label_store", "get_active_git_label_store",
+	"GitLabelResponseDTO", "GitLabelRequestDTO", "ILabelStore", "GitLabelStore", "InMemoryGitLabelBackend", "get_active_git_label_store",
 	
 	# queue_processing_registry
 	"QueueProcessingRegistryResponseDTO", "QueueProcessingRegistryRequestDTO", "QRegistryStat",
-	"IQueueProcessingRegistryStore", "queue_processing_registry_one_claim_unique", "QueueProcessingRegistryStore",
-	"get_inmemory_qpr_store", "get_active_qpr_store",
+	"IQueueProcessingRegistryStore", "queue_processing_registry_one_claim_unique", "QueueProcessingRegistryStore", "InMemoryQueueProcessingRegistryBackend",
+	"get_active_qpr_store",
 	
 	# repo
-	"GitHosting", "RepoResponseDTO", "RepoRequestDTO", "QueueJobType", "StatusTypes", "IRepoStore", "RepoStore",
-	"get_inmemory_repo_store", "get_active_repo_store",
+	"GitHosting", "RepoResponseDTO", "RepoRequestDTO", "QueueJobType", "StatusTypes", "IRepoStore", "RepoStore", "InMemoryRepoBackend",
+	"get_active_repo_store",
 	
 	# user
-	"UserResponseDTO", "UserRequestDTO", "IUserStore", "UserStore", "get_inmemory_user_store", "get_active_user_store",
+	"UserResponseDTO", "UserRequestDTO", "IUserStore", "UserStore", "InMemoryUserBackend", "get_active_user_store",
 	
 	# test doubles
 	"GenericFakeStore", "GenericStubStore",

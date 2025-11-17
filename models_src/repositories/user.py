@@ -105,7 +105,7 @@ class BeanieUserBackend(IUserStore):
     async def exists_by_user_id(self, user_id: str) -> bool:
         return await self.model.find(self.model.user_id == user_id).exists()
 
-class InMemorUserBackend(IUserStore):
+class InMemoryUserBackend(IUserStore):
     
     def __init__(self):
         self.data_store: dict[Any, UserResponseDTO] = {}
@@ -195,6 +195,3 @@ class UserStore(IUserStore):
 
 def get_active_user_store():
     return UserStore(storage_backend=BeanieUserBackend())
-
-def get_inmemory_user_store():
-    return UserStore(storage_backend=InMemorUserBackend())

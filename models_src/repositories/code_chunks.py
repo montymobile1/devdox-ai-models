@@ -499,6 +499,3 @@ class CodeChunksStore(ICodeChunksStore):
 
 def get_active_code_chunks_store():
     return CodeChunksStore(storage_backend=BeanieCodeChunksBackend())
-
-def get_inmemory_code_chunks_store():
-    return CodeChunksStore(storage_backend=InMemoryCodeChunksBackend())

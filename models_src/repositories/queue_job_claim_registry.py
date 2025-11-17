@@ -375,6 +375,3 @@ class QueueProcessingRegistryStore(IQueueProcessingRegistryStore):
 
 def get_active_qpr_store():
     return QueueProcessingRegistryStore(storage_backend=BeanieQueueProcessingRegistryBackend())
-
-def get_inmemory_qpr_store():
-    return QueueProcessingRegistryStore(storage_backend=InMemoryQueueProcessingRegistryBackend())

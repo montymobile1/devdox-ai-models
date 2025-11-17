@@ -628,6 +628,3 @@ class RepoStore(IRepoStore):
 
 def get_active_repo_store():
     return RepoStore(storage_backend=BeanieRepoBackend())
-
-def get_inmemory_repo_store():
-    return RepoStore(storage_backend=InMemoryRepoBackend())

@@ -4,13 +4,13 @@ import uuid
 import pytest
 
 from models_src import UserResponseDTO
-from models_src.repositories.user import InMemorUserBackend, UserStore
+from models_src.repositories.user import InMemoryUserBackend, UserStore
 from test.conftest import _make_user_request
 
 
 @pytest.mark.asyncio
 class TestInMemoryUserStore:
-    inmemory_store = InMemorUserBackend
+    inmemory_store = InMemoryUserBackend
 
     async def test_save_and_find_by_user_id(self):
         store = self.inmemory_store()

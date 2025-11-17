@@ -544,6 +544,3 @@ class GitLabelStore(ILabelStore):
 
 def get_active_git_label_store():
     return GitLabelStore(storage_backend=BeanieGitLabelBackend())
-
-def get_inmemory_git_label_store():
-    return GitLabelStore(storage_backend=InMemoryGitLabelBackend())
