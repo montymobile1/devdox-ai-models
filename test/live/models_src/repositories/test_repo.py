@@ -396,6 +396,87 @@ class TestRepoBackend:
         assert exc.user_message == err["log_message"]
         assert exc.log_message == err["log_message"]
     
+    
+    async def test_find_by_user_and_path_and_alias_name(self, repo: IRepoStore):
+        user_id = "user-8"
+        
+        saved = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="p1",
+                repo_name="p1",
+                html_url="https://g.com/p1",
+                repo_alias_name="alias-p1",
+            )
+        )
+        # manually patch some extra fields
+        saved.relative_path = "/users/u/p1"
+        saved.repo_alias_name = "alias-p1"
+        
+        result_path = await repo.find_by_user_and_path(user_id=user_id, relative_path="/users/u/p1")
+        assert result_path is not None
+        assert result_path.id == saved.id
+        
+        result_alias = await repo.find_by_user_and_alias_name(
+            user_id=user_id,
+            repo_alias_name="alias-p1",
+        )
+        assert result_alias is not None
+        assert result_alias.id == saved.id
+    
+    async def test_update_repo_parent_id(self, repo: IRepoStore):
+        user_id = "user-8"
+        
+        saved_1_base = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="p1",
+                repo_name="p1",
+                html_url="https://g.com/p1",
+                repo_alias_name="alias-p1"
+            )
+        )
+        
+        saved_2_with_repo_parent_repo_id = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="p2",
+                repo_name="p2",
+                html_url="https://g.com/p2",
+                repo_alias_name="alias-p2",
+                repo_parent_id=[str(saved_1_base.id)]
+            )
+        )
+        
+        saved_3_no_repo_parent_repo_id = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="p3",
+                repo_name="p3",
+                html_url="https://g.com/p3",
+                repo_alias_name="alias-p3"
+            )
+        )
+        
+        result_path_when_passing_already_existent_one = await repo.update_repo_parent_id(
+            repo_id=str(saved_2_with_repo_parent_repo_id.id), parent_repo_id=str(saved_1_base.id))
+        
+        result_path_when_passing_to_none_existent_repo_parent_repo_id_x1 = await repo.update_repo_parent_id(
+            repo_id=str(saved_3_no_repo_parent_repo_id.id), parent_repo_id=str(saved_1_base.id))
+        
+        result_path_when_passing_to_none_existent_repo_parent_repo_id_x2 = await repo.update_repo_parent_id(
+            repo_id=str(saved_3_no_repo_parent_repo_id.id), parent_repo_id=str(saved_1_base.id))
+        
+        result_path_when_passing_to_none_existent_repo_parent_repo_id_x3 = await repo.update_repo_parent_id(
+            repo_id=str(saved_3_no_repo_parent_repo_id.id), parent_repo_id=str(saved_2_with_repo_parent_repo_id.id))
+        
+        assert result_path_when_passing_already_existent_one == 0
+        assert result_path_when_passing_to_none_existent_repo_parent_repo_id_x1 == 1
+        assert result_path_when_passing_to_none_existent_repo_parent_repo_id_x2 == 0
+        assert result_path_when_passing_to_none_existent_repo_parent_repo_id_x3 == 1
+
+    
+    
 @pytest.mark.asyncio
 class TestTortoiseRepoBackend(TestRepoBackend):
     __test__ = True

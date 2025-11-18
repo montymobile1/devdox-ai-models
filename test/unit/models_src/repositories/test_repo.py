@@ -210,6 +210,40 @@ class TestRepoStoreValidation:
             repo_system_reference=repo_system_reference,
         )
         assert result == expected
+        
+    @pytest.mark.parametrize(
+        "repo_id, parent_repo_id",
+        [
+            ("", str(uuid.uuid4())),
+            (" ", str(uuid.uuid4())),
+            (None, str(uuid.uuid4())),
+            ("SOME INVALID UUID", str(uuid.uuid4())),
+            
+            (str(uuid.uuid4()), ""),
+            (str(uuid.uuid4()), " "),
+            (str(uuid.uuid4()), None),
+            (str(uuid.uuid4()), "SOME INVALID UUID"),
+            
+            ("e6244678-e66d-40db-8623-3ca98fb1d2e2", "e6244678-e66d-40db-8623-3ca98fb1d2e2"),
+        ],
+        ids=[
+            "Empty repo_id", "Whitespace repo_id", "None repo_id", "Invalid uuid repo_id",
+            "Empty parent_repo_id", "Whitespace parent_repo_id", "None parent_repo_id", "Invalid uuid parent_repo_id",
+            "repo_id == parent_repo_id"
+        ]
+    )
+    async def test_update_repo_parent_id_invalid_args_return_minus_one(
+            self,
+            repo_id: str,
+            parent_repo_id: str
+    ):
+        store = self.repo_store(storage_backend=None)
+        
+        result = await store.update_repo_parent_id(
+            repo_id=repo_id,
+            parent_repo_id=parent_repo_id,
+        )
+        assert result == -1
 
 @pytest.mark.asyncio
 class TestInMemoryRepoBackend(TestRepoBackend):
