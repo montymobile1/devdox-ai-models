@@ -31,6 +31,37 @@ class IUserStore(Protocol):
     async def exists_by_user_id(self, user_id: str) -> bool: ...
 
 # --------------------------------------------------
+# Base Store
+# --------------------------------------------------
+
+class UserStore(IUserStore):
+    
+    def __init__(self, storage_backend:IUserStore):
+        self._storage_backend = storage_backend
+    
+    async def save(self, user_model: UserRequestDTO) -> UserResponseDTO:
+        return await self._storage_backend.save(user_model=user_model)
+    
+    async def find_by_user_id(self, user_id: str) -> Optional[UserResponseDTO]:
+        if not user_id or not user_id.strip():
+            return None
+        
+        return await self._storage_backend.find_by_user_id(user_id=user_id)
+    
+    async def increment_token_usage(self, user_id: str, tokens_used: int) -> int:
+        
+        if (not user_id or not user_id.strip()) or not tokens_used:
+            return -1
+        
+        return await self._storage_backend.increment_token_usage(user_id=user_id, tokens_used=tokens_used)
+    
+    async def exists_by_user_id(self, user_id: str) -> bool:
+        if not user_id or not user_id.strip():
+            return False
+        
+        return await self._storage_backend.exists_by_user_id(user_id=user_id)
+
+# --------------------------------------------------
 # Storage Backend
 # --------------------------------------------------
 
@@ -107,44 +138,50 @@ class BeanieUserBackend(IUserStore):
 
 class InMemoryUserBackend(IUserStore):
     
+    store_cls = UserStore
+    
     def __init__(self):
-        self.data_store: dict[Any, UserResponseDTO] = {}
+        self.__data_store: dict[Any, UserResponseDTO] = {}
         self.total_count = 0
     
-    def __get_data_store(self, user_id=None):
+    @property
+    def data_store(self):
+        return self.__data_store
+
+    def get_data_store(self, user_id=None):
         
         if user_id:
-            return self.data_store.get(user_id)
+            return self.__data_store.get(user_id)
         
-        return self.data_store
+        return self.__data_store
     
-    def __set_data_store(self, data: UserResponseDTO):
-        self.data_store.setdefault(data.user_id, data)
+    def add_record(self, data: UserResponseDTO):
+        self.__data_store.setdefault(data.user_id, data)
     
-    def set_fake_data(self, fake_data: list[UserResponseDTO]):
+    def set_data_store(self, fake_data: list[UserResponseDTO]):
         
         for data in fake_data:
-            self.__set_data_store(data=data)
+            self.add_record(data=data)
         
-        self.total_count = len(self.data_store)
+        self.total_count = len(self.__data_store)
     
     async def save(self, user_model: UserRequestDTO) -> UserResponseDTO:
         result = UserResponseDTO(**asdict(user_model))
         result.id = uuid.uuid4()
         result.created_at = datetime.datetime.now(datetime.timezone.utc)
         
-        self.__set_data_store(data=result)
+        self.add_record(data=result)
         self.total_count += 1
         
         return result
     
     async def find_by_user_id(self, user_id: str):
-        return self.__get_data_store(user_id=user_id)
+        return self.get_data_store(user_id=user_id)
     
     async def increment_token_usage(self, user_id: str, tokens_used: int) -> int:
         updated = 0
         
-        data: UserResponseDTO = self.__get_data_store(user_id=user_id)
+        data: UserResponseDTO = self.get_data_store(user_id=user_id)
         
         if data:
             data.token_used += tokens_used
@@ -153,41 +190,9 @@ class InMemoryUserBackend(IUserStore):
         return updated
     
     async def exists_by_user_id(self, user_id: str) -> bool:
-        res = self.__get_data_store(user_id=user_id)
+        res = self.get_data_store(user_id=user_id)
         
         return True if res else False
-
-
-# --------------------------------------------------
-# Base Store
-# --------------------------------------------------
-
-class UserStore(IUserStore):
-    
-    def __init__(self, storage_backend:IUserStore):
-        self._storage_backend = storage_backend
-    
-    async def save(self, user_model: UserRequestDTO) -> UserResponseDTO:
-        return await self._storage_backend.save(user_model=user_model)
-    
-    async def find_by_user_id(self, user_id: str) -> Optional[UserResponseDTO]:
-        if not user_id or not user_id.strip():
-            return None
-        
-        return await self._storage_backend.find_by_user_id(user_id=user_id)
-    
-    async def increment_token_usage(self, user_id: str, tokens_used: int) -> int:
-        
-        if (not user_id or not user_id.strip()) or not tokens_used:
-            return -1
-        
-        return await self._storage_backend.increment_token_usage(user_id=user_id, tokens_used=tokens_used)
-    
-    async def exists_by_user_id(self, user_id: str) -> bool:
-        if not user_id or not user_id.strip():
-            return False
-        
-        return await self._storage_backend.exists_by_user_id(user_id=user_id)
 
 # --------------------------------------------------
 # Factory

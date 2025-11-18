@@ -46,6 +46,65 @@ class IApiKeyStore(Protocol):
     async def update_last_used_by_id(self, id: str, last_used_at:datetime.datetime=None) -> int: ...
 
 # --------------------------------------------------
+# Base Store
+# --------------------------------------------------
+
+class ApiKeyStore(IApiKeyStore):
+    
+    def __init__(self, storage_backend:IApiKeyStore):
+        self._storage_backend = storage_backend
+    
+    async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
+        return await self._storage_backend.save(create_model=create_model)
+    
+    async def find_all_by_user_id(self, offset, limit, user_id: str) -> List[APIKeyResponseDTO]:
+        
+        if not user_id or not user_id.strip():
+            raise internal_error(**ApiKeysErrors.MISSING_USER_ID.value)
+        
+        return await self._storage_backend.find_all_by_user_id(offset=offset, limit=limit, user_id=user_id)
+    
+    async def count_by_user_id(self, user_id: str) -> int:
+        
+        if not user_id or not user_id.strip():
+            raise internal_error(**ApiKeysErrors.MISSING_USER_ID.value)
+        
+        return await self._storage_backend.count_by_user_id(user_id=user_id)
+    
+    async def exists_by_hash_key(self, hash_key: str) -> bool:
+        
+        if not hash_key or not hash_key.strip():
+            return False
+        
+        return await self._storage_backend.exists_by_hash_key(hash_key=hash_key)
+    
+    async def update_is_active_by_user_id_and_api_key_id(self, user_id, api_key_id, is_active) -> int:
+        
+        if not user_id or not user_id.strip() or not api_key_id:
+            return -1
+        
+        return await self._storage_backend.update_is_active_by_user_id_and_api_key_id(user_id=user_id, api_key_id=api_key_id, is_active=is_active)
+    
+    async def find_by_active_api_key(self, api_key: str, is_active=True) -> Optional[APIKeyResponseDTO]:
+        
+        if not api_key or not api_key.strip():
+            return None
+        
+        return await self._storage_backend.find_by_active_api_key(api_key=api_key, is_active=is_active)
+    
+    async def update_last_used_by_id(self, id: str, last_used_at: datetime.datetime = None) -> int:
+        
+        # validate if its a valid uuid
+        if not id or not id.strip():
+            return -1
+        try:
+            uuid.UUID(id)   # convert input string to UUID
+        except ValueError:
+            return -1
+        
+        return await self._storage_backend.update_last_used_by_id(id=id, last_used_at=last_used_at)
+
+# --------------------------------------------------
 # Storage Backend
 # --------------------------------------------------
 
@@ -194,29 +253,35 @@ class BeanieApiKeyBackend(IApiKeyStore):
         return result.matched_count
 
 class InMemoryApiKeyBackend(IApiKeyStore):
-
+    
+    store_cls = ApiKeyStore
+    
     def __init__(self):
-        self.data_store: dict[Any, List[APIKeyResponseDTO]] = {}
+        self.__data_store: dict[Any, List[APIKeyResponseDTO]] = {}
         self.existing_hash_set = set()
         self.total_count = 0
-
-    def __get_data_store(self, user_id=None):
+    
+    @property
+    def data_store(self):
+        return self.__data_store
+    
+    def get_data_store(self, user_id=None):
 
         if user_id:
-            return self.data_store.get(user_id) or []
+            return self.__data_store.get(user_id) or []
 
-        return self.data_store
+        return self.__data_store
 
-    def __set_data_store(self, data: APIKeyResponseDTO):
-        self.data_store.setdefault(data.user_id, []).append(data)
+    def add_record(self, data: APIKeyResponseDTO):
+        self.__data_store.setdefault(data.user_id, []).append(data)
 
-    def set_fake_data(self, fake_data: list[APIKeyResponseDTO]):
+    def set_data_store(self, fake_data: list[APIKeyResponseDTO]):
         for data in fake_data:
-            self.__set_data_store(data)
+            self.add_record(data)
             self.existing_hash_set.add(data.api_key)
 
         full_total = 0
-        for values in self.data_store.values():
+        for values in self.__data_store.values():
             full_total = full_total + len(values)
 
         self.total_count = full_total
@@ -229,7 +294,7 @@ class InMemoryApiKeyBackend(IApiKeyStore):
         response.id = uuid.uuid4()
         response.created_at = datetime.datetime.now(datetime.timezone.utc)
 
-        self.__set_data_store(response)
+        self.add_record(response)
         self.existing_hash_set.add(response.api_key)
         self.total_count += 1
 
@@ -240,7 +305,7 @@ class InMemoryApiKeyBackend(IApiKeyStore):
     ) -> int:
         updated = 0
 
-        data: list = self.__get_data_store(user_id=user_id)
+        data: list = self.get_data_store(user_id=user_id)
 
         for index, value in enumerate(data):
             if uuid.UUID(value.api_key) == api_key_id and value.is_active:
@@ -251,7 +316,7 @@ class InMemoryApiKeyBackend(IApiKeyStore):
     async def find_all_by_user_id(
         self, offset, limit, user_id
     ) -> List[APIKeyResponseDTO]:
-        data: List[APIKeyResponseDTO] = self.__get_data_store(user_id=user_id)
+        data: List[APIKeyResponseDTO] = self.get_data_store(user_id=user_id)
 
         sorted_data = sorted(
             [value for value in data if value.is_active],
@@ -262,7 +327,7 @@ class InMemoryApiKeyBackend(IApiKeyStore):
         return sorted_data
 
     async def count_by_user_id(self, user_id: str) -> int:
-        data: List[APIKeyResponseDTO] = self.__get_data_store(user_id=user_id)
+        data: List[APIKeyResponseDTO] = self.get_data_store(user_id=user_id)
 
         is_active_data = [value for value in data if value.is_active]
 
@@ -271,7 +336,7 @@ class InMemoryApiKeyBackend(IApiKeyStore):
     async def find_by_active_api_key(
         self, api_key: str, is_active=True
     ) -> Optional[APIKeyResponseDTO]:
-        data = self.__get_data_store()
+        data = self.get_data_store()
 
         if not data:
             return None
@@ -289,7 +354,7 @@ class InMemoryApiKeyBackend(IApiKeyStore):
         return discovered_result
 
     async def update_last_used_by_id(self, id: str, last_used_at:datetime=None) -> int:
-        data = self.__get_data_store()
+        data = self.get_data_store()
         updated = 0
 
         if not data:
@@ -302,65 +367,6 @@ class InMemoryApiKeyBackend(IApiKeyStore):
                     i.last_used_at = last_used_at or datetime.datetime.now(datetime.timezone.utc)
 
         return updated
-
-# --------------------------------------------------
-# Base Store
-# --------------------------------------------------
-
-class ApiKeyStore(IApiKeyStore):
-    
-    def __init__(self, storage_backend:IApiKeyStore):
-        self._storage_backend = storage_backend
-    
-    async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
-        return await self._storage_backend.save(create_model=create_model)
-    
-    async def find_all_by_user_id(self, offset, limit, user_id: str) -> List[APIKeyResponseDTO]:
-        
-        if not user_id or not user_id.strip():
-            raise internal_error(**ApiKeysErrors.MISSING_USER_ID.value)
-        
-        return await self._storage_backend.find_all_by_user_id(offset=offset, limit=limit, user_id=user_id)
-    
-    async def count_by_user_id(self, user_id: str) -> int:
-        
-        if not user_id or not user_id.strip():
-            raise internal_error(**ApiKeysErrors.MISSING_USER_ID.value)
-        
-        return await self._storage_backend.count_by_user_id(user_id=user_id)
-    
-    async def exists_by_hash_key(self, hash_key: str) -> bool:
-        
-        if not hash_key or not hash_key.strip():
-            return False
-        
-        return await self._storage_backend.exists_by_hash_key(hash_key=hash_key)
-    
-    async def update_is_active_by_user_id_and_api_key_id(self, user_id, api_key_id, is_active) -> int:
-        
-        if not user_id or not user_id.strip() or not api_key_id:
-            return -1
-        
-        return await self._storage_backend.update_is_active_by_user_id_and_api_key_id(user_id=user_id, api_key_id=api_key_id, is_active=is_active)
-    
-    async def find_by_active_api_key(self, api_key: str, is_active=True) -> Optional[APIKeyResponseDTO]:
-        
-        if not api_key or not api_key.strip():
-            return None
-        
-        return await self._storage_backend.find_by_active_api_key(api_key=api_key, is_active=is_active)
-    
-    async def update_last_used_by_id(self, id: str, last_used_at: datetime.datetime = None) -> int:
-        
-        # validate if its a valid uuid
-        if not id or not id.strip():
-            return -1
-        try:
-            uuid.UUID(id)   # convert input string to UUID
-        except ValueError:
-            return -1
-        
-        return await self._storage_backend.update_last_used_by_id(id=id, last_used_at=last_used_at)
 
 # --------------------------------------------------
 # Factory

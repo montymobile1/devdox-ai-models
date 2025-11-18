@@ -82,6 +82,127 @@ class IRepoStore(Protocol):
     ) -> Optional[RepoResponseDTO]: ...
 
 # --------------------------------------------------
+# Base Store
+# --------------------------------------------------
+
+class RepoStore(IRepoStore):
+    
+    def __init__(self, storage_backend:IRepoStore):
+        self._storage_backend = storage_backend
+    
+    async def save(self, repo_model: RepoRequestDTO) -> RepoResponseDTO:
+        try:
+            return await self._storage_backend.save(repo_model=repo_model)
+        except (DuplicateKeyError, IntegrityError) as e:
+            raise internal_error(**RepoErrors.REPOSITORY_ALREADY_EXIST.value) from e
+    
+    async def save_context(self, repo_id: str, user_id: str, config: dict) -> RepoResponseDTO:
+        """
+        Beanie doc has no `config` field and several required fields,
+        so we update an existing repo’s status to 'pending' (context kick-off).
+        """
+        if (not repo_id or not repo_id.strip()) or (not user_id or not user_id.strip()):
+            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value)
+        
+        return await self._storage_backend.save_context(repo_id=repo_id, user_id=user_id, config=config)
+    
+    async def get_by_id(self, repo_id: str) -> RepoResponseDTO:
+        
+        if not repo_id or not repo_id.strip():
+            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value)
+        try:
+            uuid.UUID(repo_id)
+        except ValueError as e:
+            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value) from e
+        
+        try:
+            return await self._storage_backend.get_by_id(repo_id=repo_id)
+        except (DoesNotExist, DocumentNotFound) as e:
+            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value) from e
+    
+    async def find_by_repo_id(self, repo_id: str) -> Optional[RepoResponseDTO]:
+        return await self._storage_backend.find_by_repo_id(repo_id=repo_id)
+    
+    async def find_by_repo_id_user_id(self, repo_id: str, user_id: str) -> Optional[RepoResponseDTO]:
+        data = await self._storage_backend.find_by_repo_id_user_id(repo_id=repo_id, user_id=user_id)
+        if not data:
+            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value)
+    
+    async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
+        
+        if not id or not id.strip():
+            return None
+        
+        try:
+            uuid.UUID(id)
+        except ValueError:
+            return None
+        
+        return await self._storage_backend.find_by_id(id=id)
+    
+    async def find_by_user_id_and_html_url(
+            self, user_id: str, html_url: str
+    ) -> Optional[RepoResponseDTO]:
+        return await self._storage_backend.find_by_user_id_and_html_url(user_id=user_id, html_url=html_url)
+    
+    
+    async def find_all_by_user_id(self, user_id: str, offset: int, limit: int) -> List[RepoResponseDTO]:
+        if not user_id or not user_id.strip():
+            raise internal_error(**RepoErrors.MISSING_USER_ID.value)
+        
+        return await self._storage_backend.find_all_by_user_id(user_id=user_id, offset=offset, limit=limit)
+    
+    async def count_by_user_id(self, user_id: str) -> int:
+        if not user_id or not user_id.strip():
+            raise internal_error(**RepoErrors.MISSING_USER_ID.value)
+        
+        return await self._storage_backend.count_by_user_id(user_id=user_id)
+    
+    async def update_analysis_metadata_by_id(
+            self,
+            id: str,
+            status: str,
+            processing_end_time: datetime.datetime,
+            total_files: int,
+            total_chunks: int,
+            total_embeddings: int,
+    ) -> int:
+        if (not id or not id.strip()) or (not status or not status.strip()):
+            return -1
+        try:
+            uuid.UUID(id)
+        except ValueError:
+            return -1
+        
+        return await self._storage_backend.update_analysis_metadata_by_id(
+            id=id,
+            status=status,
+            processing_end_time=processing_end_time,
+            total_files=total_files,
+            total_chunks=total_chunks,
+            total_embeddings=total_embeddings
+        )
+    
+    async def update_repo_system_reference_by_id(self, id: str, repo_system_reference: str) -> int:
+        if (not id or not id.strip()) or (not repo_system_reference or not repo_system_reference.strip()):
+            return -1
+        try:
+            uuid.UUID(id)
+        except ValueError:
+            return -1
+        
+        return await self._storage_backend.update_repo_system_reference_by_id(
+            id=id,
+            repo_system_reference=repo_system_reference
+        )
+    
+    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> Optional[RepoResponseDTO]:
+        return await self._storage_backend.find_by_user_and_path(user_id=user_id, relative_path=relative_path)
+    
+    async def find_by_user_and_alias_name(self, user_id: str, repo_alias_name: str) -> Optional[RepoResponseDTO]:
+        return await self._storage_backend.find_by_user_and_alias_name(user_id=user_id, repo_alias_name=repo_alias_name)
+
+# --------------------------------------------------
 # Storage Backend
 # --------------------------------------------------
 
@@ -319,6 +440,8 @@ class BeanieRepoBackend(IRepoStore):
 
 class InMemoryRepoBackend(IRepoStore):
     
+    store_cls = RepoStore
+    
     def __init__(self):
         self.__data_store: dict[Any, List[RepoResponseDTO]] = {}
         self.total_count = 0
@@ -327,18 +450,18 @@ class InMemoryRepoBackend(IRepoStore):
     def data_store(self):
         return self.__data_store
     
-    def __get_data_store(self, user_id=None):
+    def get_data_store(self, user_id=None):
         if user_id:
             return self.__data_store.get(user_id, [])
         
         return self.__data_store
     
-    def __set_data_store(self, data: RepoResponseDTO):
+    def add_record(self, data: RepoResponseDTO):
         self.__data_store.setdefault(data.user_id, []).append(data)
     
-    def set_fake_data(self, fake_data: List[RepoResponseDTO]):
+    def set_data_store(self, fake_data: List[RepoResponseDTO]):
         for data in fake_data:
-            self.__set_data_store(data=data)
+            self.add_record(data=data)
         
         full_total = 0
         for values in self.__data_store.values():
@@ -349,12 +472,12 @@ class InMemoryRepoBackend(IRepoStore):
     async def find_all_by_user_id(
             self, user_id: str, offset: int, limit: int
     ) -> List[RepoResponseDTO]:
-        data = self.__get_data_store(user_id=user_id)
+        data = self.get_data_store(user_id=user_id)
         
         return data[offset : offset + limit]
     
     async def count_by_user_id(self, user_id: str) -> int:
-        data = self.__get_data_store(user_id=user_id)
+        data = self.get_data_store(user_id=user_id)
         
         return len(data)
     
@@ -362,7 +485,7 @@ class InMemoryRepoBackend(IRepoStore):
         response = RepoResponseDTO(**asdict(repo_model))
         response.id = uuid.uuid4()
         
-        self.__set_data_store(data=response)
+        self.add_record(data=response)
         
         self.total_count += 1
         
@@ -370,7 +493,7 @@ class InMemoryRepoBackend(IRepoStore):
     
     async def get_by_id(self, repo_id: str) -> RepoResponseDTO:
         match = None
-        for key, obj_list in self.__get_data_store().items():
+        for key, obj_list in self.get_data_store().items():
             match = next(
                 (obj for obj in obj_list if obj.id == uuid.UUID(repo_id)), None
             )
@@ -382,7 +505,7 @@ class InMemoryRepoBackend(IRepoStore):
     async def find_by_repo_id(self, repo_id: str) -> Optional[RepoResponseDTO]:
 
         match = None
-        for key, obj_list in self.__get_data_store().items():
+        for key, obj_list in self.get_data_store().items():
             match = next((obj for obj in obj_list if obj.repo_id == repo_id), None)
             if match:
                 break
@@ -390,14 +513,14 @@ class InMemoryRepoBackend(IRepoStore):
         return match
     
     async def find_by_repo_id_user_id(self, repo_id: str, user_id: str) -> Optional[RepoResponseDTO]:
-        user_repos = self.__get_data_store(user_id=user_id)
+        user_repos = self.get_data_store(user_id=user_id)
         
         match = next((obj for obj in user_repos if obj.repo_id == repo_id), None)
         return match
     
     async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
         match = None
-        for key, obj_list in self.__get_data_store().items():
+        for key, obj_list in self.get_data_store().items():
             match = next((obj for obj in obj_list if str(obj.id == id)), None)
             if match:
                 break
@@ -413,7 +536,7 @@ class InMemoryRepoBackend(IRepoStore):
             total_chunks: int,
             total_embeddings: int,
     ) -> int:
-        data = self.__get_data_store()
+        data = self.get_data_store()
 
         updated = 0
         for key, obj_list in data.items():
@@ -435,7 +558,7 @@ class InMemoryRepoBackend(IRepoStore):
 
         match = None
         
-        data: List[RepoResponseDTO] = self.__get_data_store(user_id=user_id)
+        data: List[RepoResponseDTO] = self.get_data_store(user_id=user_id)
         
         for obj in data:
             if obj.html_url == html_url:
@@ -454,7 +577,7 @@ class InMemoryRepoBackend(IRepoStore):
         response = RepoResponseDTO(repo_id=repo_id, user_id=user_id, status="pending")
         response.id = uuid.uuid4()
         
-        self.__set_data_store(data=response)
+        self.add_record(data=response)
         
         self.total_count += 1
         
@@ -464,7 +587,7 @@ class InMemoryRepoBackend(IRepoStore):
             self, id: str, repo_system_reference: str
     ) -> int:
 
-        data = self.__get_data_store()
+        data = self.get_data_store()
         
         updated = 0
         for key, obj_list in data.items():
@@ -477,7 +600,7 @@ class InMemoryRepoBackend(IRepoStore):
         return updated
     
     async def find_by_user_and_path(self, user_id: str, relative_path: str) -> RepoResponseDTO:
-        all_data = self.__get_data_store(user_id=user_id)
+        all_data = self.get_data_store(user_id=user_id)
         
         result = None
         for data in all_data:
@@ -490,7 +613,7 @@ class InMemoryRepoBackend(IRepoStore):
     async def find_by_user_and_alias_name(
             self, user_id: str, repo_alias_name: str
     ) -> RepoResponseDTO:
-        all_data = self.__get_data_store(user_id=user_id)
+        all_data = self.get_data_store(user_id=user_id)
         
         result = None
         for data in all_data:
@@ -499,128 +622,6 @@ class InMemoryRepoBackend(IRepoStore):
                 break
         
         return result
-
-
-# --------------------------------------------------
-# Base Store
-# --------------------------------------------------
-
-class RepoStore(IRepoStore):
-    
-    def __init__(self, storage_backend:IRepoStore):
-        self._storage_backend = storage_backend
-    
-    async def save(self, repo_model: RepoRequestDTO) -> RepoResponseDTO:
-        try:
-            return await self._storage_backend.save(repo_model=repo_model)
-        except (DuplicateKeyError, IntegrityError) as e:
-            raise internal_error(**RepoErrors.REPOSITORY_ALREADY_EXIST.value) from e
-    
-    async def save_context(self, repo_id: str, user_id: str, config: dict) -> RepoResponseDTO:
-        """
-        Beanie doc has no `config` field and several required fields,
-        so we update an existing repo’s status to 'pending' (context kick-off).
-        """
-        if (not repo_id or not repo_id.strip()) or (not user_id or not user_id.strip()):
-            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value)
-        
-        return await self._storage_backend.save_context(repo_id=repo_id, user_id=user_id, config=config)
-    
-    async def get_by_id(self, repo_id: str) -> RepoResponseDTO:
-
-        if not repo_id or not repo_id.strip():
-            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value)
-        try:
-            uuid.UUID(repo_id)
-        except ValueError as e:
-            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value) from e
-        
-        try:
-            return await self._storage_backend.get_by_id(repo_id=repo_id)
-        except (DoesNotExist, DocumentNotFound) as e:
-            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value) from e
-    
-    async def find_by_repo_id(self, repo_id: str) -> Optional[RepoResponseDTO]:
-        return await self._storage_backend.find_by_repo_id(repo_id=repo_id)
-    
-    async def find_by_repo_id_user_id(self, repo_id: str, user_id: str) -> Optional[RepoResponseDTO]:
-        data = await self._storage_backend.find_by_repo_id_user_id(repo_id=repo_id, user_id=user_id)
-        if not data:
-            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value)
-    
-    async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
-        
-        if not id or not id.strip():
-            return None
-        
-        try:
-            uuid.UUID(id)
-        except ValueError:
-            return None
-        
-        return await self._storage_backend.find_by_id(id=id)
-    
-    async def find_by_user_id_and_html_url(
-            self, user_id: str, html_url: str
-    ) -> Optional[RepoResponseDTO]:
-        return await self._storage_backend.find_by_user_id_and_html_url(user_id=user_id, html_url=html_url)
-    
-    
-    async def find_all_by_user_id(self, user_id: str, offset: int, limit: int) -> List[RepoResponseDTO]:
-        if not user_id or not user_id.strip():
-            raise internal_error(**RepoErrors.MISSING_USER_ID.value)
-        
-        return await self._storage_backend.find_all_by_user_id(user_id=user_id, offset=offset, limit=limit)
-    
-    async def count_by_user_id(self, user_id: str) -> int:
-        if not user_id or not user_id.strip():
-            raise internal_error(**RepoErrors.MISSING_USER_ID.value)
-        
-        return await self._storage_backend.count_by_user_id(user_id=user_id)
-        
-    async def update_analysis_metadata_by_id(
-            self,
-            id: str,
-            status: str,
-            processing_end_time: datetime.datetime,
-            total_files: int,
-            total_chunks: int,
-            total_embeddings: int,
-    ) -> int:
-        if (not id or not id.strip()) or (not status or not status.strip()):
-            return -1
-        try:
-            uuid.UUID(id)
-        except ValueError:
-            return -1
-        
-        return await self._storage_backend.update_analysis_metadata_by_id(
-            id=id,
-            status=status,
-            processing_end_time=processing_end_time,
-            total_files=total_files,
-            total_chunks=total_chunks,
-            total_embeddings=total_embeddings
-        )
-    
-    async def update_repo_system_reference_by_id(self, id: str, repo_system_reference: str) -> int:
-        if (not id or not id.strip()) or (not repo_system_reference or not repo_system_reference.strip()):
-            return -1
-        try:
-            uuid.UUID(id)
-        except ValueError:
-            return -1
-        
-        return await self._storage_backend.update_repo_system_reference_by_id(
-            id=id,
-            repo_system_reference=repo_system_reference
-        )
-    
-    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> Optional[RepoResponseDTO]:
-        return await self._storage_backend.find_by_user_and_path(user_id=user_id, relative_path=relative_path)
-    
-    async def find_by_user_and_alias_name(self, user_id: str, repo_alias_name: str) -> Optional[RepoResponseDTO]:
-        return await self._storage_backend.find_by_user_and_alias_name(user_id=user_id, repo_alias_name=repo_alias_name)
 
 # --------------------------------------------------
 # Factory

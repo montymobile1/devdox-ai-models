@@ -24,14 +24,10 @@ from test.conftest import _make_queue_registry_request
 @pytest.mark.asyncio
 class TestInMemoryQueueProcessingRegistryStore:
     InMemo = InMemoryQueueProcessingRegistryBackend
-    FakeStore = QueueProcessingRegistryStore
     
     async def test_save_sets_id_and_claimed_at(self):
         
-        in_mem = self.InMemo()
-        fake = GenericFakeStore(
-            base_store=self.FakeStore(storage_backend=in_mem)
-        )
+        fake = GenericFakeStore(in_memory_backend=self.InMemo())
         
         req = _make_queue_registry_request(
             message_id="mem-msg-1",
@@ -50,14 +46,11 @@ class TestInMemoryQueueProcessingRegistryStore:
         assert saved.status == req.status
         assert saved.step == req.step
         assert isinstance(saved.claimed_at, datetime.datetime)
-        assert in_mem.total_count == 1
+        assert fake.backend.total_count == 1
 
     async def test_update_status_or_message_id_by_id_updates_and_returns_1(self):
         
-        in_mem = self.InMemo()
-        fake = GenericFakeStore(
-            base_store=self.FakeStore(storage_backend=in_mem)
-        )
+        fake = GenericFakeStore(in_memory_backend=self.InMemo())
         
         req = _make_queue_registry_request(
             message_id="mem-msg-update",
@@ -75,16 +68,14 @@ class TestInMemoryQueueProcessingRegistryStore:
         assert updated == 1
 
         # Directly peek into data_store
-        data = in_mem.data_store[saved.id]
+        data = fake.backend.data_store[saved.id]
         assert data is not None
         assert data.status == QRegistryStat.IN_PROGRESS
         assert data.message_id == "mem-msg-updated"
 
     async def test_update_status_or_message_id_by_id_returns_zero_for_missing_id(self):
         
-        fake = GenericFakeStore(
-            base_store=self.FakeStore(storage_backend=self.InMemo())
-        )
+        fake = GenericFakeStore(in_memory_backend=self.InMemo())
 
         updated = await fake.update_status_or_message_id_by_id(
             id=str(uuid.uuid4()),
@@ -94,10 +85,7 @@ class TestInMemoryQueueProcessingRegistryStore:
 
     async def test_update_step_by_id_updates_step(self):
         
-        in_memo = self.InMemo()
-        fake = GenericFakeStore(
-            base_store=self.FakeStore(storage_backend=in_memo)
-        )
+        fake = GenericFakeStore(in_memory_backend=self.InMemo())
 
         saved = await fake.save(
             _make_queue_registry_request(
@@ -111,24 +99,19 @@ class TestInMemoryQueueProcessingRegistryStore:
         updated = await fake.update_step_by_id(id=str(saved.id), step="step-2")
         assert updated == 1
 
-        data = in_memo.data_store[saved.id]
+        data = fake.backend.data_store[saved.id]
         assert data is not None
         assert data.step == "step-2"
 
     async def test_update_step_by_id_missing_id_returns_zero(self):
-        fake = GenericFakeStore(
-            base_store=self.FakeStore(storage_backend=self.InMemo())
-        )
+        fake = GenericFakeStore(in_memory_backend=self.InMemo())
 
         updated = await fake.update_step_by_id(id=str(uuid.uuid4()), step="step-2")
         assert updated == 0
 
     async def test_update_status_and_step_by_id_updates_both(self):
         
-        in_memo = self.InMemo()
-        fake = GenericFakeStore(
-            base_store=self.FakeStore(storage_backend=in_memo)
-        )
+        fake = GenericFakeStore(in_memory_backend=self.InMemo())
 
         saved = await fake.save(
             _make_queue_registry_request(
@@ -146,17 +129,14 @@ class TestInMemoryQueueProcessingRegistryStore:
         )
         assert updated == 1
 
-        data = in_memo.data_store[saved.id]
+        data = fake.backend.data_store[saved.id]
         assert data is not None
         assert data.status == QRegistryStat.COMPLETED
         assert data.step == "step-final"
 
     async def test_find_previous_latest_message_by_message_id_returns_first_match(self):
         
-        in_memo = self.InMemo()
-        fake = GenericFakeStore(
-            base_store=self.FakeStore(storage_backend=in_memo)
-        )
+        fake = GenericFakeStore(in_memory_backend=self.InMemo())
         
         msg_id = "mem-msg-prev"
 
@@ -180,8 +160,6 @@ class TestInMemoryQueueProcessingRegistryStore:
         result = await fake.find_previous_latest_message_by_message_id(message_id=msg_id)
         assert result is not None
         assert result.message_id == msg_id
-        # current in-memory implementation returns the first one it encounters
-        # we only assert it matches some record with that message_id
 
 
 @pytest.mark.asyncio

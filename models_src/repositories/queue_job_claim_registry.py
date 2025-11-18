@@ -50,6 +50,75 @@ class IQueueProcessingRegistryStore(Protocol):
     ) -> Optional[QueueProcessingRegistryResponseDTO]: ...
 
 # --------------------------------------------------
+# Base Store
+# --------------------------------------------------
+
+class QueueProcessingRegistryStore(IQueueProcessingRegistryStore):
+    
+    def __init__(self, storage_backend:IQueueProcessingRegistryStore):
+        self._storage_backend = storage_backend
+    
+    async def save(
+            self, create_model: QueueProcessingRegistryRequestDTO
+    ) -> QueueProcessingRegistryResponseDTO:
+        try:
+            return await self._storage_backend.save(create_model=create_model)
+        except (DuplicateKeyError, IntegrityError) as e:
+            if queue_processing_registry_one_claim_unique in str(e):
+                raise JobAlreadyClaimed() from e
+            raise
+    
+    async def _uuid_or_neg1(self, id: Optional[str]) -> Optional[uuid.UUID]:
+        if not id or not id.strip():
+            return None
+        try:
+            return uuid.UUID(id)
+        except ValueError:
+            return None
+    
+    async def update_status_or_message_id_by_id(
+            self, id: str, status: QRegistryStat, message_id: Optional[str] = None
+    ) -> int:
+        
+        if not status:
+            return -1
+        uuid_id = await self._uuid_or_neg1(id)
+        if uuid_id is None:
+            return -1
+        
+        return await self._storage_backend.update_status_or_message_id_by_id(id=id, status=status, message_id=message_id)
+    
+    async def update_step_by_id(self, id: str, step: str) -> int:
+        if not step or not step.strip():
+            return -1
+        uuid_id = await self._uuid_or_neg1(id)
+        if uuid_id is None:
+            return -1
+        
+        return await self._storage_backend.update_step_by_id(id=id, step=step)
+    
+    async def update_status_and_step_by_id(
+            self, id: str, status: QRegistryStat, step: str
+    ) -> int:
+        
+        if (not status) or (not step or not step.strip()):
+            return -1
+        uuid_id = await self._uuid_or_neg1(id)
+        if uuid_id is None:
+            return -1
+        
+        return await self._storage_backend.update_status_and_step_by_id(id=id, status=status, step=step)
+    
+    async def find_previous_latest_message_by_message_id(
+            self, message_id: str
+    ) -> Optional[QueueProcessingRegistryResponseDTO]:
+        
+        if not message_id or not message_id.strip():
+            return None
+        
+        return await self._storage_backend.find_previous_latest_message_by_message_id(message_id=message_id)
+
+# --------------------------------------------------
 # Storage Backend
 # --------------------------------------------------
 
@@ -204,26 +273,32 @@ class BeanieQueueProcessingRegistryBackend(IQueueProcessingRegistryStore):
         )
 
 class InMemoryQueueProcessingRegistryBackend(IQueueProcessingRegistryStore):
-
+    
+    store_cls = QueueProcessingRegistryStore
+    
     def __init__(self):
-        self.data_store: dict[Any, QueueProcessingRegistryResponseDTO] = {}
+        self.__data_store: dict[Any, QueueProcessingRegistryResponseDTO] = {}
         self.total_count = 0
-
-    def __get_data_store(self, id: str = None):
+    
+    @property
+    def data_store(self):
+        return self.__data_store
+    
+    def get_data_store(self, id: str = None):
 
         if id:
-            return self.data_store.get(uuid.UUID(id), None)
+            return self.__data_store.get(uuid.UUID(id), None)
 
-        return self.data_store
+        return self.__data_store
 
-    def __set_data_store(self, data: QueueProcessingRegistryResponseDTO):
-        self.data_store.setdefault(data.id, data)
+    def add_record(self, data: QueueProcessingRegistryResponseDTO):
+        self.__data_store.setdefault(data.id, data)
 
-    def set_fake_data(self, fake_data: List[QueueProcessingRegistryResponseDTO]):
+    def set_data_store(self, fake_data: List[QueueProcessingRegistryResponseDTO]):
         for data in fake_data:
-            self.__set_data_store(data)
+            self.add_record(data)
 
-        self.total_count = len(self.__get_data_store())
+        self.total_count = len(self.get_data_store())
 
     async def save(
         self, create_model: QueueProcessingRegistryRequestDTO
@@ -232,7 +307,7 @@ class InMemoryQueueProcessingRegistryBackend(IQueueProcessingRegistryStore):
         response.id = uuid.uuid4()
         response.claimed_at = datetime.datetime.now(datetime.timezone.utc)
 
-        self.__set_data_store(response)
+        self.add_record(response)
         self.total_count += 1
 
         return response
@@ -242,7 +317,7 @@ class InMemoryQueueProcessingRegistryBackend(IQueueProcessingRegistryStore):
     ) -> int:
         updated = 0
 
-        data_obj = self.__get_data_store(id=id)
+        data_obj = self.get_data_store(id=id)
 
         if not data_obj:
             return updated
@@ -260,7 +335,7 @@ class InMemoryQueueProcessingRegistryBackend(IQueueProcessingRegistryStore):
 
         updated = 0
 
-        data_obj = self.__get_data_store(id=id)
+        data_obj = self.get_data_store(id=id)
 
         if not data_obj:
             return updated
@@ -276,7 +351,7 @@ class InMemoryQueueProcessingRegistryBackend(IQueueProcessingRegistryStore):
     ) -> int:
         updated = 0
 
-        data_obj = self.__get_data_store(id=id)
+        data_obj = self.get_data_store(id=id)
 
         if not data_obj:
             return updated
@@ -292,82 +367,13 @@ class InMemoryQueueProcessingRegistryBackend(IQueueProcessingRegistryStore):
         self, message_id: str
     ) -> Optional[QueueProcessingRegistryResponseDTO]:
 
-        data_obj = self.__get_data_store()
+        data_obj = self.get_data_store()
 
         for items in data_obj.values():
             if items.message_id == message_id:
                 return items
 
         return None
-
-# --------------------------------------------------
-# Base Store
-# --------------------------------------------------
-
-class QueueProcessingRegistryStore(IQueueProcessingRegistryStore):
-    
-    def __init__(self, storage_backend:IQueueProcessingRegistryStore):
-        self._storage_backend = storage_backend
-    
-    async def save(
-        self, create_model: QueueProcessingRegistryRequestDTO
-    ) -> QueueProcessingRegistryResponseDTO:
-        try:
-            return await self._storage_backend.save(create_model=create_model)
-        except (DuplicateKeyError, IntegrityError) as e:
-            if queue_processing_registry_one_claim_unique in str(e):
-                raise JobAlreadyClaimed() from e
-            raise
-        
-    async def _uuid_or_neg1(self, id: Optional[str]) -> Optional[uuid.UUID]:
-        if not id or not id.strip():
-            return None
-        try:
-            return uuid.UUID(id)
-        except ValueError:
-            return None
-
-    async def update_status_or_message_id_by_id(
-        self, id: str, status: QRegistryStat, message_id: Optional[str] = None
-    ) -> int:
-
-        if not status:
-            return -1
-        uuid_id = await self._uuid_or_neg1(id)
-        if uuid_id is None:
-            return -1
-        
-        return await self._storage_backend.update_status_or_message_id_by_id(id=id, status=status, message_id=message_id)
-
-    async def update_step_by_id(self, id: str, step: str) -> int:
-        if not step or not step.strip():
-            return -1
-        uuid_id = await self._uuid_or_neg1(id)
-        if uuid_id is None:
-            return -1
-        
-        return await self._storage_backend.update_step_by_id(id=id, step=step)
-
-    async def update_status_and_step_by_id(
-        self, id: str, status: QRegistryStat, step: str
-    ) -> int:
-        
-        if (not status) or (not step or not step.strip()):
-            return -1
-        uuid_id = await self._uuid_or_neg1(id)
-        if uuid_id is None:
-            return -1
-        
-        return await self._storage_backend.update_status_and_step_by_id(id=id, status=status, step=step)
-
-    async def find_previous_latest_message_by_message_id(
-        self, message_id: str
-    ) -> Optional[QueueProcessingRegistryResponseDTO]:
-        
-        if not message_id or not message_id.strip():
-            return None
-        
-        return await self._storage_backend.find_previous_latest_message_by_message_id(message_id=message_id)
 
 # --------------------------------------------------
 # Factory

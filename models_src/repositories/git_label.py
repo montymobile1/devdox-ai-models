@@ -63,6 +63,106 @@ class ILabelStore(Protocol):
     ) -> int: ...
 
 # --------------------------------------------------
+# Base Store
+# --------------------------------------------------
+
+class GitLabelStore(ILabelStore):
+    
+    def __init__(self, storage_backend:ILabelStore):
+        self._storage_backend = storage_backend
+    
+    async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO:
+        try:
+            return await self._storage_backend.save(label_model=label_model)
+        except (DuplicateKeyError, IntegrityError) as e:
+            # unique compound index violation
+            raise internal_error(**GitLabelErrors.GIT_LABEL_ALREADY_EXISTS.value) from e
+    
+    async def find_git_hostings_by_ids(
+            self, token_ids: Collection[Union[str, UUID]]
+    ) -> List[Dict]:
+        if not token_ids:
+            return []
+        
+        return await self._storage_backend.find_git_hostings_by_ids(token_ids=token_ids)
+    
+    
+    async def find_by_token_id_and_user(
+            self, token_id: str, user_id: str
+    ) -> GitLabelResponseDTO | None:
+        if not token_id or not token_id.strip() or not user_id or not user_id.strip():
+            return None
+        
+        try:
+            UUID(token_id)
+        except ValueError:
+            return None
+        
+        return await self._storage_backend.find_by_token_id_and_user(token_id=token_id, user_id=user_id)
+    
+    async def find_by_id_and_user_id_and_git_hosting(
+            self, id: str, user_id: str, git_hosting: str
+    ) -> Optional[GitLabelResponseDTO]:
+        if not id or not id.strip() or not user_id or not user_id.strip() or not git_hosting or not git_hosting.strip():
+            return None
+        
+        try:
+            UUID(id)
+        except ValueError:
+            return None
+        
+        return await self._storage_backend.find_by_id_and_user_id_and_git_hosting(
+            id=id, user_id=user_id, git_hosting=git_hosting
+        )
+    
+    async def find_all_by_user_id(
+            self, offset, limit, user_id, git_hosting: Optional[str] = None
+    ) -> list[GitLabelResponseDTO]:
+        
+        if not user_id or not user_id.strip():
+            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
+        
+        return await self._storage_backend.find_all_by_user_id(offset=offset, limit=limit, user_id=user_id, git_hosting=git_hosting)
+    
+    async def count_by_user_id(self, user_id, git_hosting: Optional[str] = None) -> int:
+        if not user_id or not user_id.strip():
+            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
+        return await self._storage_backend.count_by_user_id(user_id=user_id, git_hosting=git_hosting)
+    
+    async def find_all_by_user_id_and_label(
+            self, offset, limit, user_id, label: str
+    ) -> list[GitLabelResponseDTO]:
+        if not user_id:
+            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
+        
+        if not label or not label.strip():
+            raise internal_error(**GitLabelErrors.MISSING_LABEL.value)
+        
+        return await self._storage_backend.find_all_by_user_id_and_label(
+            offset=offset, limit=limit, user_id=user_id, label=label
+        )
+    
+    async def count_by_user_id_and_label(self, user_id, label: str) -> int:
+        if not user_id:
+            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
+        
+        if not label or not label.strip():
+            raise internal_error(**GitLabelErrors.MISSING_LABEL.value)
+        
+        return await self._storage_backend.count_by_user_id_and_label(user_id=user_id, label=label)
+    
+    async def delete_by_id_and_user_id(self, label_id: uuid.UUID, user_id: str) -> int:
+        if not label_id or not user_id or not user_id.strip():
+            return -1
+        # accept strings too (tests sometimes pass str)
+        try:
+            UUID(str(label_id))
+        except ValueError:
+            return -1
+        
+        return await self._storage_backend.delete_by_id_and_user_id(label_id=label_id, user_id=user_id)
+
+# --------------------------------------------------
 # Storage Backend
 # --------------------------------------------------
 
@@ -286,34 +386,40 @@ class BeanieGitLabelBackend(ILabelStore):
         return getattr(res, "deleted_count", 0) if res is not None else 0
 
 class InMemoryGitLabelBackend(ILabelStore):
-
+    
+    store_cls = GitLabelStore
+    
     def __init__(self):
-        self.data_store: dict[Any, List[GitLabelResponseDTO]] = {}
+        self.__data_store: dict[Any, List[GitLabelResponseDTO]] = {}
         self.total_count = 0
-
-    def __get_data_store(self, user_id=None):
+    
+    @property
+    def data_store(self):
+        return self.__data_store
+    
+    def get_data_store(self, user_id=None):
 
         if user_id:
-            return self.data_store.get(user_id, [])
+            return self.__data_store.get(user_id, [])
 
-        return self.data_store
+        return self.__data_store
 
-    def __set_data_store(self, data: GitLabelResponseDTO):
-        self.data_store.setdefault(data.user_id, []).append(data)
+    def add_record(self, data: GitLabelResponseDTO):
+        self.__data_store.setdefault(data.user_id, []).append(data)
 
-    def set_fake_data(self, fake_data: List[GitLabelResponseDTO]):
+    def set_data_store(self, fake_data: List[GitLabelResponseDTO]):
         for data in fake_data:
-            self.__set_data_store(data)
+            self.add_record(data)
 
         full_total = 0
-        for values in self.data_store.values():
+        for values in self.__data_store.values():
             full_total = full_total + len(values)
 
         self.total_count = full_total
     
     async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO:
         
-        retrieved_data = self.__get_data_store(user_id=label_model.user_id)
+        retrieved_data = self.get_data_store(user_id=label_model.user_id)
         
         found = False
         for record in retrieved_data:
@@ -327,7 +433,7 @@ class InMemoryGitLabelBackend(ILabelStore):
         result = GitLabelResponseDTO(**asdict(label_model))
         result.id = uuid.uuid4()
 
-        self.__set_data_store(data=result)
+        self.add_record(data=result)
         self.total_count += 1
 
         return result
@@ -337,7 +443,7 @@ class InMemoryGitLabelBackend(ILabelStore):
         self, token_ids: Collection[Union[str, UUID]]
     ) -> List[Dict]:
         match_list = []
-        for key, obj_list in self.data_store.items():
+        for key, obj_list in self.__data_store.items():
             matches = [obj for obj in obj_list if str(obj.id) in token_ids]
             for match in matches:
                 match_list.append({"id": match.id, "git_hosting": match.git_hosting})
@@ -347,7 +453,7 @@ class InMemoryGitLabelBackend(ILabelStore):
     async def find_by_token_id_and_user(
         self, token_id: str, user_id: str
     ) -> GitLabelResponseDTO | None:
-        user_id_data = self.__get_data_store(user_id=user_id)
+        user_id_data = self.get_data_store(user_id=user_id)
 
         result = None
         for record in user_id_data:
@@ -361,7 +467,7 @@ class InMemoryGitLabelBackend(ILabelStore):
         self, id: str, user_id: str, git_hosting: str
     ) -> Optional[GitLabelResponseDTO]:
 
-        data = self.__get_data_store(user_id=user_id)
+        data = self.get_data_store(user_id=user_id)
 
         match = None
 
@@ -376,12 +482,12 @@ class InMemoryGitLabelBackend(ILabelStore):
     async def find_all_by_user_id(
         self, offset, limit, user_id, git_hosting: Optional[str] = None
     ) -> list[GitLabelResponseDTO]:
-        data = self.__get_data_store(user_id=user_id)
+        data = self.get_data_store(user_id=user_id)
         return data[offset : offset + limit]
 
 
     async def count_by_user_id(self, user_id, git_hosting: Optional[str] = None) -> int:
-        data = self.__get_data_store(user_id=user_id)
+        data = self.get_data_store(user_id=user_id)
 
         count = len(data) if data else 0
 
@@ -396,7 +502,7 @@ class InMemoryGitLabelBackend(ILabelStore):
     async def find_all_by_user_id_and_label(
         self, offset, limit, user_id, label: str
     ) -> list[GitLabelResponseDTO]:
-        data = self.__get_data_store(user_id=user_id)
+        data = self.get_data_store(user_id=user_id)
 
         results = []
         for record in data:
@@ -407,7 +513,7 @@ class InMemoryGitLabelBackend(ILabelStore):
 
 
     async def count_by_user_id_and_label(self, user_id, label: str) -> int:
-        user_id_data = self.__get_data_store(user_id=user_id)
+        user_id_data = self.get_data_store(user_id=user_id)
 
         if label:
             count = 0
@@ -420,7 +526,7 @@ class InMemoryGitLabelBackend(ILabelStore):
             return len(user_id_data) if user_id_data else 0
 
     async def delete_by_id_and_user_id(self, label_id: uuid.UUID, user_id: str) -> int:
-        data = self.__get_data_store(user_id=user_id)
+        data = self.get_data_store(user_id=user_id)
         initial_count = len(data) if data else 0
 
         if initial_count == 0:
@@ -437,106 +543,6 @@ class InMemoryGitLabelBackend(ILabelStore):
                 data.pop(index)
 
         return initial_count - len(data)
-
-# --------------------------------------------------
-# Base Store
-# --------------------------------------------------
-
-class GitLabelStore(ILabelStore):
-    
-    def __init__(self, storage_backend:ILabelStore):
-        self._storage_backend = storage_backend
-    
-    async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO:
-        try:
-            return await self._storage_backend.save(label_model=label_model)
-        except (DuplicateKeyError, IntegrityError) as e:
-            # unique compound index violation
-            raise internal_error(**GitLabelErrors.GIT_LABEL_ALREADY_EXISTS.value) from e
-    
-    async def find_git_hostings_by_ids(
-            self, token_ids: Collection[Union[str, UUID]]
-    ) -> List[Dict]:
-        if not token_ids:
-            return []
-        
-        return await self._storage_backend.find_git_hostings_by_ids(token_ids=token_ids)
-    
-    
-    async def find_by_token_id_and_user(
-            self, token_id: str, user_id: str
-    ) -> GitLabelResponseDTO | None:
-        if not token_id or not token_id.strip() or not user_id or not user_id.strip():
-            return None
-        
-        try:
-            UUID(token_id)
-        except ValueError:
-            return None
-        
-        return await self._storage_backend.find_by_token_id_and_user(token_id=token_id, user_id=user_id)
-    
-    async def find_by_id_and_user_id_and_git_hosting(
-            self, id: str, user_id: str, git_hosting: str
-    ) -> Optional[GitLabelResponseDTO]:
-        if not id or not id.strip() or not user_id or not user_id.strip() or not git_hosting or not git_hosting.strip():
-            return None
-        
-        try:
-            UUID(id)
-        except ValueError:
-            return None
-        
-        return await self._storage_backend.find_by_id_and_user_id_and_git_hosting(
-            id=id, user_id=user_id, git_hosting=git_hosting
-        )
-    
-    async def find_all_by_user_id(
-            self, offset, limit, user_id, git_hosting: Optional[str] = None
-    ) -> list[GitLabelResponseDTO]:
-        
-        if not user_id or not user_id.strip():
-            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
-        
-        return await self._storage_backend.find_all_by_user_id(offset=offset, limit=limit, user_id=user_id, git_hosting=git_hosting)
-
-    async def count_by_user_id(self, user_id, git_hosting: Optional[str] = None) -> int:
-        if not user_id or not user_id.strip():
-            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
-        return await self._storage_backend.count_by_user_id(user_id=user_id, git_hosting=git_hosting)
-    
-    async def find_all_by_user_id_and_label(
-            self, offset, limit, user_id, label: str
-    ) -> list[GitLabelResponseDTO]:
-        if not user_id:
-            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
-        
-        if not label or not label.strip():
-            raise internal_error(**GitLabelErrors.MISSING_LABEL.value)
-        
-        return await self._storage_backend.find_all_by_user_id_and_label(
-            offset=offset, limit=limit, user_id=user_id, label=label
-        )
-    
-    async def count_by_user_id_and_label(self, user_id, label: str) -> int:
-        if not user_id:
-            raise internal_error(**GitLabelErrors.MISSING_USER_ID.value)
-        
-        if not label or not label.strip():
-            raise internal_error(**GitLabelErrors.MISSING_LABEL.value)
-        
-        return await self._storage_backend.count_by_user_id_and_label(user_id=user_id, label=label)
-    
-    async def delete_by_id_and_user_id(self, label_id: uuid.UUID, user_id: str) -> int:
-        if not label_id or not user_id or not user_id.strip():
-            return -1
-        # accept strings too (tests sometimes pass str)
-        try:
-            UUID(str(label_id))
-        except ValueError:
-            return -1
-        
-        return await self._storage_backend.delete_by_id_and_user_id(label_id=label_id, user_id=user_id)
 
 # --------------------------------------------------
 # Factory

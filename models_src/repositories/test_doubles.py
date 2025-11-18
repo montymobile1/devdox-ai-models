@@ -7,12 +7,12 @@ from models_src.dto.git_label import GitLabelResponseDTO
 
 from models_src.dto.user import UserResponseDTO
 
-from models_src.repositories.api_key import ApiKeyStore
-from models_src.repositories.code_chunks import CodeChunksStore
-from models_src.repositories.git_label import GitLabelStore
-from models_src.repositories.queue_job_claim_registry import QueueProcessingRegistryStore
-from models_src.repositories.repo import RepoStore
-from models_src.repositories.user import UserStore
+from models_src.repositories.api_key import InMemoryApiKeyBackend
+from models_src.repositories.code_chunks import InMemoryCodeChunksBackend
+from models_src.repositories.git_label import InMemoryGitLabelBackend
+from models_src.repositories.queue_job_claim_registry import InMemoryQueueProcessingRegistryBackend
+from models_src.repositories.repo import InMemoryRepoBackend
+from models_src.repositories.user import InMemoryUserBackend
 
 
 class _CallSpyMixin:
@@ -158,12 +158,45 @@ class _StubStore(_StubPlanMixin):
         return wrapper
 
 
-InMemoryStore = Union[ApiKeyStore, CodeChunksStore, GitLabelStore, QueueProcessingRegistryStore, RepoStore, UserStore]
+class AnyInMemory:
+    """
+        A class meant for internal use only for performing tests on GenericFakeStore, any class
+        that extends from this is allowed to be used by the Generic Fakes
+    """
+    store_cls = None
 
+InMemoryBackend = Union[
+    InMemoryApiKeyBackend,
+    InMemoryCodeChunksBackend,
+    InMemoryGitLabelBackend,
+    InMemoryQueueProcessingRegistryBackend,
+    InMemoryRepoBackend,
+    InMemoryUserBackend,
+    AnyInMemory
+]
 
 class GenericFakeStore(_FakeStore):
-    def __init__(self, base_store:InMemoryStore):
-        super().__init__(base_store=base_store)
+    """
+    If passed an in-memory backend (with .store_cls), automatically wraps it
+    in the correct store
+    """
+    def __init__(self, in_memory_backend: InMemoryBackend):
+        
+        if not hasattr(in_memory_backend, "store_cls") or not in_memory_backend.store_cls:
+            raise TypeError(
+                f"GenericFakeStore expects an in-memory backend with 'store_cls', "
+                f"got {type(in_memory_backend)!r}"
+            )
+        
+        backend = in_memory_backend
+        store_cls = in_memory_backend.store_cls
+        store = store_cls(storage_backend=backend)
+
+        super().__init__(base_store=store)
+
+        # expose both layers for tests
+        self.store = store
+        self.backend = backend
 
 
 class GenericStubStore(_StubStore):
