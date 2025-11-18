@@ -735,8 +735,7 @@ class InMemoryRepoBackend(IRepoStore):
         
         return result
     
-    async def update_repo_parent_id(self, repo_id: str, parent_repo_id: str) -> int:
-        all_data = self.data_store
+    def __find_repos(self, all_data, repo_id, parent_repo_id):
         
         found_repo = None
         found_parent_repo = None
@@ -747,10 +746,17 @@ class InMemoryRepoBackend(IRepoStore):
                 
                 if d.id == uuid.UUID(parent_repo_id) and not found_parent_repo:
                     found_parent_repo = d
-                
+            
             if found_repo and found_parent_repo:
                 break
         
+        return found_repo, found_parent_repo
+    
+    async def update_repo_parent_id(self, repo_id: str, parent_repo_id: str) -> int:
+        all_data = self.data_store
+        
+        found_repo, found_parent_repo = self.__find_repos(all_data=all_data, repo_id=repo_id, parent_repo_id=parent_repo_id)
+
         if (not found_repo and not found_parent_repo) or (found_repo.repo_parent_id and (str(found_parent_repo.id) in found_repo.repo_parent_id)):
             return 0
         
