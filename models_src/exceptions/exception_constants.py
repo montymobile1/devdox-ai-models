@@ -18,3 +18,5 @@ REPO_ALREADY_EXISTS_MESSAGE = "Repo Already Exists"
 JOB_ALREADY_CLAIMED = "Queue Job Already Claimed"
 
 EMBEDDINGS_INVALID_SIZE = "embedding must have length {EMBED_DIM}, got {ARRAY_LENGTH}"
+
+RECORD_NOT_FOUND = "Record Not Found"

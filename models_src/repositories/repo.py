@@ -11,6 +11,8 @@ from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from models_src.dto.repo import RepoRequestDTO, RepoResponseDTO
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
+from models_src.exceptions import exception_constants
+from models_src.exceptions.local_exception import InMemoryNotFound
 from models_src.exceptions.utils import internal_error, RepoErrors
 from models_src.models.repo_enums import StatusTypes
 from models_src.models.repo import Repo
@@ -117,7 +119,7 @@ class RepoStore(IRepoStore):
         
         try:
             return await self._storage_backend.get_by_id(repo_id=repo_id)
-        except (DoesNotExist, DocumentNotFound) as e:
+        except (DoesNotExist, DocumentNotFound, InMemoryNotFound) as e:
             raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value) from e
     
     async def find_by_repo_id(self, repo_id: str) -> Optional[RepoResponseDTO]:
@@ -362,6 +364,10 @@ class BeanieRepoBackend(IRepoStore):
     
     async def get_by_id(self, repo_id: str) -> RepoResponseDTO:
         doc = await self.model.get(document_id= uuid.UUID(repo_id))
+        
+        if not doc:
+            raise DocumentNotFound(exception_constants.RECORD_NOT_FOUND)
+        
         return self.model_mapper.map_document_to_dataclass(doc, RepoResponseDTO)
     
     async def find_by_repo_id(self, repo_id: str) -> Optional[RepoResponseDTO]:
@@ -499,6 +505,9 @@ class InMemoryRepoBackend(IRepoStore):
             )
             if match:
                 break
+        
+        if not match:
+            raise InMemoryNotFound(exception_constants.RECORD_NOT_FOUND)
         
         return match
     

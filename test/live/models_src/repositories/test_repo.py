@@ -2,6 +2,7 @@ import datetime
 import uuid
 
 import pytest
+from beanie.exceptions import DocumentNotFound
 
 from models_src.dto.repo import RepoResponseDTO
 from models_src.models.repo_enums import StatusTypes
@@ -40,7 +41,13 @@ class TestBeanieRepoBackend:
         fetched = await store.get_by_id(str(saved.id))
         assert fetched is not None
         assert fetched.id == saved.id
-
+    
+    async def test_get_by_id_not_found_returns_exception(self, db_client):
+        store = self.beanie_store()
+        
+        with pytest.raises(DocumentNotFound):
+            await store.get_by_id("b0908783-6b99-45ca-8d2b-acb369945374")
+    
     async def test_find_by_repo_id_and_user_id_and_html_url(self, db_client):
         store = self.beanie_store()
         user_id = "beanie-user-2"

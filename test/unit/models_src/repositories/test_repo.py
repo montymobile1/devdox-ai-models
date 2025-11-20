@@ -7,6 +7,7 @@ from pymongo.errors import DuplicateKeyError
 
 from models_src.dto.repo import RepoResponseDTO
 from models_src.exceptions.base_exceptions import DevDoxModelsException
+from models_src.exceptions.local_exception import InMemoryNotFound
 from models_src.exceptions.utils import RepoErrors
 from models_src.repositories.repo import (
     InMemoryRepoBackend,
@@ -41,7 +42,13 @@ class TestInMemoryRepoBackend:
         fetched = await store.get_by_id(str(saved.id))
         assert fetched is not None
         assert fetched.id == saved.id
-
+    
+    async def test_get_by_id_not_found_returns_exception(self):
+        store = self.inmemory_store()
+        
+        with pytest.raises(InMemoryNotFound):
+            await store.get_by_id("b0908783-6b99-45ca-8d2b-acb369945374")
+    
     async def test_find_by_repo_id_and_repo_id_user_id_and_find_by_id(self):
         store = self.inmemory_store()
         user_id = "mem-user-2"
