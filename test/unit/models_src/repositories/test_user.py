@@ -1,9 +1,10 @@
 import pytest
 import pytest_asyncio
+from models_src.exceptions import exception_constants
 from pymongo.errors import DuplicateKeyError
 from tortoise.exceptions import IntegrityError
 
-from models_src import DevDoxModelsException
+from models_src import DevDoxModelsException, RecordNotFound
 from models_src.repositories.user import InMemoryUserBackend, UserStore
 from test.live.models_src.repositories.test_user import TestUserBackend
 
@@ -69,13 +70,22 @@ class TestUserStoreValidation:
             tokens_used=tokens_used,
         )
         assert result == expected
-
+    
     @pytest.mark.parametrize("user_id", [None, "", " ", "\t"])
     async def test_exists_by_user_id_invalid_returns_false(self, user_id):
         store = self.user_store(storage_backend=None)
-
+        
         result = await store.exists_by_user_id(user_id=user_id)
         assert result is False
+    
+    @pytest.mark.parametrize("user_id", [None, "", " ", "\t"])
+    async def test_get_encryption_salt_invalid_causes_exception(self, user_id):
+        store = self.user_store(storage_backend=None)
+        
+        with pytest.raises(RecordNotFound) as exp:
+            await store.get_encryption_salt(user_id=user_id)
+        
+        assert exp.value.user_message == exception_constants.INVALID_PASSED_FIELDS
 
 
 @pytest.mark.asyncio

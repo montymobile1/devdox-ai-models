@@ -23,3 +23,5 @@ JOB_ALREADY_CLAIMED = "Queue Job Already Claimed"
 EMBEDDINGS_INVALID_SIZE = "embedding must have length {EMBED_DIM}, got {ARRAY_LENGTH}"
 
 RECORD_NOT_FOUND = "Record Not Found"
+
+INVALID_PASSED_FIELDS = "Passed Field(s) Invalid"

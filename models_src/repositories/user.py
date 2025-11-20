@@ -78,7 +78,7 @@ class UserStore(IUserStore):
     
     async def get_encryption_salt(self, user_id: str) -> str | None:
         if not user_id or not user_id.strip():
-            return None
+            raise RecordNotFound(reason=exception_constants.INVALID_PASSED_FIELDS)
         
         try:
             return await self._storage_backend.get_encryption_salt(user_id=user_id)
