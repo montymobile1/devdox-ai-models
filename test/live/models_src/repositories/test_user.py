@@ -4,6 +4,7 @@ import uuid
 
 import pytest
 import pytest_asyncio
+from beanie.exceptions import DocumentNotFound
 from pymongo.errors import DuplicateKeyError
 from tortoise.exceptions import IntegrityError
 
@@ -135,7 +136,7 @@ class TestUserBackend:
         """
         increment_token_usage should:
         - return 1 when a user exists
-        - increment token_used
+        - increment token_usedf
         - keep created_at unchanged
         - bump updated_at forward
         """
@@ -172,7 +173,26 @@ class TestUserBackend:
         """increment_token_usage should return 0 when the user_id does not exist."""
         updated_count = await repo.increment_token_usage(user_id="does-not-exist", tokens_used=10)
         assert updated_count == 0
-
+        
+        
+    async def test_get_encryption_salt(self, repo):
+        
+        req = _make_user_request(
+            user_id="beanie-user-3",
+            email="exists@example.com",
+            role="user",
+        )
+        await repo.save(req)
+        
+        encryption_salt = await repo.get_encryption_salt("beanie-user-3")
+        
+        
+        assert encryption_salt
+        assert isinstance(encryption_salt, str)
+        
+        with pytest.raises(DocumentNotFound):
+            await repo.get_encryption_salt("missing-user")
+    
 @pytest.mark.asyncio
 class TestTortoiseUserBackend(TestUserBackend):
     __test__ = True

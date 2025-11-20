@@ -7,13 +7,36 @@ from models_src.models import QRegistryStat
 
 from models_src.dto.queue_job_claim_registry import QueueProcessingRegistryRequestDTO
 
-from models_src import APIKeyRequestDTO, CodeChunksRequestDTO, GitHosting, GitLabelRequestDTO, RepoRequestDTO, \
+from models_src import APIKeyRequestDTO, ApiLogRequestDTO, CodeChunksRequestDTO, GitHosting, GitLabelRequestDTO, RepoRequestDTO, \
     StatusTypes, UserRequestDTO
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+def _make_api_log_request(
+    user_id: str = "user-1",
+    operation_id: str = "api_operation_id",
+    path: str = "/some/api",
+    method: str = "POST",
+    request_received_at: datetime.datetime = datetime.datetime.now(datetime.timezone.utc),
+    process_time_ms: int = 1,
+    request_body: dict | list | None = None,
+    response_body: dict | list | None = None,
+) -> ApiLogRequestDTO:
+    """
+    Helper to build ApiLogRequestDTO consistently.
+    """
+    return ApiLogRequestDTO(
+        user_id=user_id,
+        operation_id=operation_id,
+        path=path,
+        method=method,
+        request_received_at=request_received_at,
+        process_time_ms=process_time_ms,
+        request_body=request_body,
+        response_body=response_body
+    )
 
 def _make_api_key_request(
     user_id: str = "user-1",

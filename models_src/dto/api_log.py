@@ -18,6 +18,9 @@ class ApiLogResponseDTO:
 	
 	request_body: dict | list | None = None
 	response_body: dict | list | None = None
+	
+	created_at: datetime.datetime | None = None
+	updated_at: datetime.datetime | None = None
 
 
 @dataclass

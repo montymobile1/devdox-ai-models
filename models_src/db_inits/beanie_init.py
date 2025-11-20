@@ -5,6 +5,7 @@ from urllib.parse import quote, urlencode
 
 from models_src.configs.mongo_config import MongoConfig
 from models_src.models.beanie_odm.api_key_document import APIKEY
+from models_src.models.beanie_odm.api_log_document import ApiLog
 from models_src.models.beanie_odm.code_chunks_document import CodeChunks
 from models_src.models.beanie_odm.git_label_document import GitLabel
 from models_src.models.beanie_odm.queue_job_claim_registry_document import QueueProcessingRegistry
@@ -45,7 +46,7 @@ def get_standard_uuid_codec():
     return CodecOptions(uuid_representation=STANDARDIZED_UUID_CODEC)
 
 documents_list_loc = [
-    APIKEY, CodeChunks, GitLabel, QueueProcessingRegistry, Repo, User
+    ApiLog, APIKEY, CodeChunks, GitLabel, QueueProcessingRegistry, Repo, User
 ]
 
 async def init_via_uri(mongo_uri: str, documents_list=None):
