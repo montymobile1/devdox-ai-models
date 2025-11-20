@@ -73,7 +73,7 @@ __all__ = [
 	"GenericFakeStore", "GenericStubStore",
 	
 	# exceptions & error handling
-	"DevDoxModelsException", "JobAlreadyClaimed", "exception_constants", "RepoErrors", "GitLabelErrors", "internal_error",
+	"DevDoxModelsException", "JobAlreadyClaimed", "exception_constants", "RepoErrors", "GitLabelErrors", "internal_error", "RecordNotFound"
 	
 	# testing queue
 	"testing_queue_name", "TestingJobType", "TestingPriority", "TestingDatabaseType", "LoadTestRequest", "LoadLocustPayload", "TestingQPayload",
