@@ -1,8 +1,16 @@
 from typing import Optional, Dict, Literal
-from pydantic import BaseModel, Field, SecretStr
-from urllib.parse import quote, urlencode
+from pydantic import Field, SecretStr
 
-class MongoConfig(BaseModel):
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class MongoConfig(BaseSettings):
+    
+    model_config = SettingsConfigDict(
+        env_prefix="MONGO_",
+        extra="ignore",
+        case_sensitive=False,
+    )
+    
     SCHEME: Literal["mongodb", "mongodb+srv"] = Field(
         default="mongodb",
         description="MongoDB URI scheme. Use 'mongodb+srv' for DNS SRV discovery (Atlas etc.). "
@@ -24,7 +32,7 @@ class MongoConfig(BaseModel):
                     "Ignored when scheme='mongodb+srv', or when per-host ports are already present."
     )
     
-    DB: str = Field(
+    DB: Optional[str] = Field(
         default=None,
         description="Database name appended in the URI path (.../<db>). "
                     "Required because the initializer calls get_default_database() for Beanie."
@@ -55,35 +63,3 @@ class MongoConfig(BaseModel):
                     "'serverSelectionTimeoutMS':'5000'}. "
                     "'authSource' will be added from auth_db if not explicitly provided here."
     )
-    
-    def build_uri(self) -> str:
-        """
-        Build a standards-compliant MongoDB URI with optional credentials and query params.
-        Ensures username/password are percent-encoded when present.
-        """
-        # userinfo
-        creds = ""
-        if self.USERNAME:
-            if self.PASSWORD and self.PASSWORD.get_secret_value() != "":
-                creds = f"{quote(self.USERNAME)}:{quote(self.PASSWORD.get_secret_value())}@"
-            else:
-                creds = f"{quote(self.USERNAME)}@"
-        
-        # hosts
-        hosts = self.HOST
-        if self.SCHEME != "mongodb+srv":
-            # If single host without an explicit port, append default port
-            if "," not in hosts and ":" not in hosts:
-                hosts = f"{hosts}:{self.PORT}"
-        
-        # query params
-        q: Dict[str, str] = dict(self.PARAMS or {})
-        if self.AUTH_DB and "authSource" not in q:
-            q["authSource"] = self.AUTH_DB
-        query = f"?{urlencode(q)}" if q else ""
-        
-        db_name = ""
-        if self.DB:
-            db_name = self.DB
-        
-        return f"{self.SCHEME}://{creds}{hosts}/{db_name}{query}"

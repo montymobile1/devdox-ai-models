@@ -1,7 +1,9 @@
 from beanie import init_beanie
 from pymongo import AsyncMongoClient
 from bson.codec_options import CodecOptions, UuidRepresentation
+from urllib.parse import quote, urlencode
 
+from models_src.configs.mongo_config import MongoConfig
 from models_src.models.api_key_document import APIKEY
 from models_src.models.code_chunks_document import CodeChunks
 from models_src.models.git_label_document import GitLabel
@@ -60,3 +62,35 @@ async def init_via_uri(mongo_uri: str, documents_list=None):
         document_models=documents_list
     )
     return client, db
+
+def build_uri(mongo_conf: MongoConfig) -> str:
+    """
+    Build a standards-compliant MongoDB URI with optional credentials and query params.
+    Ensures username/password are percent-encoded when present.
+    """
+    # userinfo
+    creds = ""
+    if mongo_conf.USERNAME:
+        if mongo_conf.PASSWORD and mongo_conf.PASSWORD.get_secret_value() != "":
+            creds = f"{quote(mongo_conf.USERNAME)}:{quote(mongo_conf.PASSWORD.get_secret_value())}@"
+        else:
+            creds = f"{quote(mongo_conf.USERNAME)}@"
+    
+    # hosts
+    hosts = mongo_conf.HOST
+    if mongo_conf.SCHEME != "mongodb+srv":
+        # If single host without an explicit port, append default port
+        if "," not in hosts and ":" not in hosts:
+            hosts = f"{hosts}:{mongo_conf.PORT}"
+    
+    # query params
+    q: dict[str, str] = dict(mongo_conf.PARAMS or {})
+    if mongo_conf.AUTH_DB and "authSource" not in q:
+        q["authSource"] = mongo_conf.AUTH_DB
+    query = f"?{urlencode(q)}" if q else ""
+    
+    db_name = ""
+    if mongo_conf.DB:
+        db_name = mongo_conf.DB
+    
+    return f"{mongo_conf.SCHEME}://{creds}{hosts}/{db_name}{query}"

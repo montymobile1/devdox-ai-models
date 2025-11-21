@@ -1,6 +1,6 @@
 # config and settings
 from .configs.mongo_config import MongoConfig
-from .db_inits.beanie_init import init_via_uri
+from .db_inits.beanie_init import build_uri, init_via_uri
 
 # dto's
 from .dto.api_key import APIKeyRequestDTO, APIKeyResponseDTO
@@ -37,7 +37,7 @@ from .repositories.user import get_active_user_store, InMemoryUserBackend, IUser
 __all__ = [
 	
 	# Configuration and settings
-	"MongoConfig", "init_via_uri",
+	"MongoConfig", "init_via_uri", "build_uri",
 	
 	# api_key
     "APIKeyResponseDTO", "APIKeyRequestDTO", "IApiKeyStore", "ApiKeyStore", "InMemoryApiKeyBackend", "get_active_api_key_store",

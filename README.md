@@ -494,3 +494,186 @@ To get the latest Git commit hash from a GitHub repository (such as [devdox-ai-m
 2. The list shows the most recent commits to the main branch. The top entry is the latest commit.
 
 3. Copy the commit hash of the latest commit thats the `git_commit_hash`
+
+---
+
+#### 📝 How to Integrate mongo configuration with your project
+
+Below are two solid, battle-tested patterns for plugging **MongoConfig** into your app settings.
+You can pick either one. They solve the same problem; the difference is *where* the wiring happens.
+
+---
+
+# Pattern 1: Inject Mongo with a `default_factory` (Factory Pattern)
+
+### When to use this
+Use this if you like your settings to “self-construct” everything automatically when you do:
+
+```python
+settings = GenericSetting()
+```
+
+This approach attaches Mongo to the parent settings via a **Pydantic Field factory**.
+
+### Step 1 — define reusable factory helpers
+```python
+from pathlib import Path
+from typing import Optional, Sequence, Union, Callable
+
+EnvFiles = Union[Path, Sequence[Path], str, None]
+
+def build_mongo(env_files: EnvFiles, enabled: bool = True) -> Optional[MongoConfig]:
+    """
+    Build MongoConfig from env files.
+    If enabled=False, returns None (Mongo disabled).
+    """
+    if not enabled:
+        return None
+    return MongoConfig(_env_file=env_files)
+
+
+def make_mongo_factory(env_files: EnvFiles, enabled: bool = True) -> Callable[[], Optional[MongoConfig]]:
+    """
+    Pydantic's default_factory must be a zero-argument callable.
+    So we "close over" env_files/enabled and return a 0-arg factory.
+    """
+    def _factory() -> Optional[MongoConfig]:
+        return build_mongo(env_files, enabled)
+    return _factory
+```
+
+### Step 2 — inject it into your BaseSettings
+```python
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class GenericSetting(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file="../.env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # ... other settings ...
+
+    MONGO: Optional[MongoConfig] = Field(
+        default_factory=make_mongo_factory("../.env", enabled=True)
+    )
+```
+
+That’s it. Now `GenericSetting()` will automatically create `MONGO`
+using `../.env`.
+
+### Optional: Disable Mongo in a service
+```python
+MONGO: Optional[MongoConfig] = Field(
+    default_factory=make_mongo_factory("../.env", enabled=False)
+)
+```
+
+### Pydantic v1 equivalent
+```python
+class GenericSetting(BaseSettings):
+    class Config:
+        env_file = "../.env"
+        env_file_encoding = "utf-8"
+        extra = "ignore"
+
+    # ... other settings ...
+
+    MONGO: Optional[MongoConfig] = Field(
+        default_factory=make_mongo_factory("../.env", enabled=True)
+    )
+```
+
+**Why this pattern is good:**
+- fully automatic construction;
+- Mongo stays optional;
+- still uses a shared MongoConfig class.
+
+**Tradeoff:**
+- Slightly more boilerplate (two helper functions);
+- a bit more “magic” during instantiation.
+
+---
+
+# Pattern 2: Load everything in one place (Loader Pattern — recommended)
+
+### When to use this
+Use this if you prefer *explicit wiring* and maximum testability.
+
+Instead of every setting constructing itself, you load them together:
+
+```python
+settings = load_settings(".env")
+```
+
+This is simpler for debugging and tests.
+
+### Step 1 — parent settings does **not** hardcode env_file
+```python
+from typing import Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class GenericSetting(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # ... other settings ...
+
+    MONGO: Optional[MongoConfig] = None
+```
+
+Notice:
+- no `env_file=...` here;
+- `MONGO` is just a field waiting to be injected.
+
+### Step 2 — define a loader
+```python
+def load_settings(env_files, mongo_enabled: bool = True) -> GenericSetting:
+    mongo = MongoConfig(_env_file=env_files) if mongo_enabled else None
+    return GenericSetting(_env_file=env_files, MONGO=mongo)
+```
+
+### Step 3 — use it in your service
+```python
+settings = load_settings("../.env", mongo_enabled=True)
+```
+
+### Disable Mongo for a service
+```python
+settings = load_settings("../.env", mongo_enabled=False)
+# settings.MONGO is None
+```
+
+### Pydantic v1 equivalent
+```python
+class GenericSetting(BaseSettings):
+    class Config:
+        env_file_encoding = "utf-8"
+        extra = "ignore"
+
+    # ... other settings ...
+
+    MONGO: Optional[MongoConfig] = None
+```
+
+**Why this pattern is great:**
+- minimal boilerplate;
+- explicit control: “load from *this file* right now”;
+- super test-friendly (you can pass any env file in tests);
+- one central shared MongoConfig class still works everywhere.
+
+**Tradeoff:**
+- You must call `load_settings()` instead of `GenericSetting()` directly.
+
+---
+
+# Quick rule of thumb
+
+- Want settings to “boot themselves” automatically → **Pattern 1**
+- Want clarity + easy testing + fewer moving pieces → **Pattern 2**
+
+Both patterns keep MongoConfig centralized and reusable across services, while letting each service choose its own env-file location.
