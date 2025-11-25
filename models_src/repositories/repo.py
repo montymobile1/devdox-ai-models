@@ -129,6 +129,8 @@ class RepoStore(IRepoStore):
         data = await self._storage_backend.find_by_repo_id_user_id(repo_id=repo_id, user_id=user_id)
         if not data:
             raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value)
+        
+        return data
     
     async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
         
