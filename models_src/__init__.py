@@ -21,6 +21,10 @@ from .models.beanie_odm.code_chunks_document import EMBED_DIM
 from .models.common.queue_job_claim_registry_enums import QRegistryStat
 from .models.common.repo_enums import QueueJobType, StatusTypes
 from .models.common.queue_job_claim_registry_constants import queue_processing_registry_one_claim_unique
+from .models.queue.processing import processing_queue_name, ProcessingJobType, ProcessingPriority, \
+	ProcessingQPayload, ProcessingQPayloadMeta
+from .models.queue.testing import LoadLocustPayload, LoadTestRequest, testing_queue_name, TestingDatabaseType, TestingJobType, TestingPriority, \
+	TestingQPayload
 
 # repositories
 from .repositories.api_key import ApiKeyStore, get_active_api_key_store, IApiKeyStore, InMemoryApiKeyBackend
@@ -64,7 +68,12 @@ __all__ = [
 	"GenericFakeStore", "GenericStubStore",
 	
 	# exceptions & error handling
-	"DevDoxModelsException", "JobAlreadyClaimed", "exception_constants", "RepoErrors", "GitLabelErrors", "internal_error"
+	"DevDoxModelsException", "JobAlreadyClaimed", "exception_constants", "RepoErrors", "GitLabelErrors", "internal_error",
 	
+	# testing queue
+	"testing_queue_name", "TestingJobType", "TestingPriority", "TestingDatabaseType", "LoadTestRequest", "LoadLocustPayload", "TestingQPayload",
+	
+	# processing queue
+	"processing_queue_name", "ProcessingJobType", "ProcessingPriority", "ProcessingQPayloadMeta", "ProcessingQPayload",
 ]
 
