@@ -1,4 +1,4 @@
-from models_src.models.queue_job_claim_registry_document import QueueProcessingRegistry
+from models_src.models.beanie_odm.queue_job_claim_registry_document import QueueProcessingRegistry
 
 
 def test_document_str():

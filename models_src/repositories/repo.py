@@ -14,9 +14,9 @@ from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.exceptions import exception_constants
 from models_src.exceptions.local_exception import InMemoryNotFound
 from models_src.exceptions.utils import internal_error, RepoErrors
-from models_src.models.repo_enums import StatusTypes
-from models_src.models.repo import Repo
-from models_src.models.repo_document import Repo as RepoDocument
+from models_src.models.common.repo_enums import StatusTypes
+from models_src.models.tortoise_orm.repo import Repo
+from models_src.models.beanie_odm.repo_document import Repo as RepoDocument
 
 # --------------------------------------------------
 # Specification

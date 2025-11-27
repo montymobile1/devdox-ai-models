@@ -7,7 +7,7 @@ from models_src.repositories.queue_job_claim_registry import BeanieQueueProcessi
 
 from models_src.dto.queue_job_claim_registry import QueueProcessingRegistryResponseDTO
 
-from models_src.models.queue_job_claim_registry_enums import QRegistryStat
+from models_src.models.common.queue_job_claim_registry_enums import QRegistryStat
 from test.conftest import _make_queue_registry_request
 
 

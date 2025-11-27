@@ -12,10 +12,10 @@ from pymongo.errors import DuplicateKeyError
 from models_src.exceptions.base_exceptions import DevDoxModelsException
 from models_src.exceptions.exception_constants import JOB_ALREADY_CLAIMED
 from models_src.exceptions.local_exception import JobAlreadyClaimed
-from models_src.models.queue_job_claim_registry_constants import (
+from models_src.models.common.queue_job_claim_registry_constants import (
     queue_processing_registry_one_claim_unique,
 )
-from models_src.models.queue_job_claim_registry_enums import QRegistryStat
+from models_src.models.common.queue_job_claim_registry_enums import QRegistryStat
 from models_src.repositories.queue_job_claim_registry import InMemoryQueueProcessingRegistryBackend, \
 	QueueProcessingRegistryStore
 from test.conftest import _make_queue_registry_request

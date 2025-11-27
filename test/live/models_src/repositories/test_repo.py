@@ -5,7 +5,7 @@ import pytest
 from beanie.exceptions import DocumentNotFound
 
 from models_src.dto.repo import RepoResponseDTO
-from models_src.models.repo_enums import StatusTypes
+from models_src.models.common.repo_enums import StatusTypes
 from models_src.repositories.repo import BeanieRepoBackend
 from models_src.exceptions.base_exceptions import DevDoxModelsException
 from models_src.exceptions.utils import RepoErrors

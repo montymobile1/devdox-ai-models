@@ -4,12 +4,12 @@ from bson.codec_options import CodecOptions, UuidRepresentation
 from urllib.parse import quote, urlencode
 
 from models_src.configs.mongo_config import MongoConfig
-from models_src.models.api_key_document import APIKEY
-from models_src.models.code_chunks_document import CodeChunks
-from models_src.models.git_label_document import GitLabel
-from models_src.models.queue_job_claim_registry_document import QueueProcessingRegistry
-from models_src.models.repo_document import Repo
-from models_src.models.user_document import User
+from models_src.models.beanie_odm.api_key_document import APIKEY
+from models_src.models.beanie_odm.code_chunks_document import CodeChunks
+from models_src.models.beanie_odm.git_label_document import GitLabel
+from models_src.models.beanie_odm.queue_job_claim_registry_document import QueueProcessingRegistry
+from models_src.models.beanie_odm.repo_document import Repo
+from models_src.models.beanie_odm.user_document import User
 
 STANDARDIZED_UUID_CODEC = UuidRepresentation.STANDARD
 

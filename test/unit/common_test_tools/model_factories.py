@@ -1,12 +1,12 @@
 import uuid
 import datetime as dt
-from models_src.models.api_key import APIKEY
-from models_src.models.git_label import GitLabel
-from models_src.models.queue_job_claim_registry import QueueProcessingRegistry
-from models_src.models.queue_job_claim_registry_enums import QRegistryStat
-from models_src.models.repo import Repo
-from models_src.models.user import User
-from models_src.models.code_chunks import CodeChunks
+from models_src.models.tortoise_orm.api_key import APIKEY
+from models_src.models.tortoise_orm.git_label import GitLabel
+from models_src.models.tortoise_orm.queue_job_claim_registry import QueueProcessingRegistry
+from models_src.models.common.queue_job_claim_registry_enums import QRegistryStat
+from models_src.models.tortoise_orm.repo import Repo
+from models_src.models.tortoise_orm.user import User
+from models_src.models.tortoise_orm.code_chunks import CodeChunks
 
 def make_apikey(
     *,

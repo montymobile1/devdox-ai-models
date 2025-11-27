@@ -9,8 +9,8 @@ from beanie.odm.operators.update.general import Set
 from models_src.dto.api_key import APIKeyRequestDTO, APIKeyResponseDTO
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.exceptions.utils import ApiKeysErrors, internal_error
-from models_src.models.api_key import APIKEY
-from models_src.models.api_key_document import APIKEY as APIKeyDocument
+from models_src.models.tortoise_orm.api_key import APIKEY
+from models_src.models.beanie_odm.api_key_document import APIKEY as APIKeyDocument
 
 # --------------------------------------------------
 # Specification

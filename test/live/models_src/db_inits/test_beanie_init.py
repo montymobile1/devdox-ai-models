@@ -5,7 +5,7 @@ import pytest
 from bson import UuidRepresentation
 
 from models_src.db_inits.beanie_init import init_via_uri
-from models_src.models.api_key_document import APIKEY
+from models_src.models.beanie_odm.api_key_document import APIKEY
 
 logger = logging.getLogger(__name__)
 

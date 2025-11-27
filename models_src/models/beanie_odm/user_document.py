@@ -4,7 +4,7 @@ import pymongo
 from beanie import Document, Indexed
 from pydantic import Field
 
-from models_src.models.document_extra.timestamp import TimestampAuditMixin
+from models_src.models.beanie_odm.document_extra.timestamp import TimestampAuditMixin
 
 
 class User(TimestampAuditMixin, Document):

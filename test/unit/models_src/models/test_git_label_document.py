@@ -1,4 +1,4 @@
-from models_src.models.git_label_document import GitLabel
+from models_src.models.beanie_odm.git_label_document import GitLabel
 
 
 def test_document_str():

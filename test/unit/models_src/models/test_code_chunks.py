@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from models_src.exceptions.exception_constants import EMBEDDINGS_INVALID_SIZE
-from models_src.models.code_chunks_document import CodeChunks, EMBED_DIM
+from models_src.models.beanie_odm.code_chunks_document import CodeChunks, EMBED_DIM
 
 
 def test_code_chunks_embedding_validation():

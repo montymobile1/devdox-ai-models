@@ -13,7 +13,7 @@ from models_src.repositories.repo import (
     InMemoryRepoBackend,
     RepoStore,
 )
-from models_src.models.repo_enums import StatusTypes
+from models_src.models.common.repo_enums import StatusTypes
 from test.conftest import _make_repo_request
 
 

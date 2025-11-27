@@ -3,7 +3,7 @@ import uuid
 from tortoise.models import Model
 from tortoise import fields
 
-from models_src.models.queue_job_claim_registry_enums import QRegistryStat
+from models_src.models.common.queue_job_claim_registry_enums import QRegistryStat
 
 # THis is the name of the most important part of the database, basically its a partial relation that
 # is responsible for preventing two workers from acquiring the same job.

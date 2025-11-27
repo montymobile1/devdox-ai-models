@@ -1,4 +1,4 @@
-from models_src.models.user_document import User
+from models_src.models.beanie_odm.user_document import User
 
 
 def test_document_str():

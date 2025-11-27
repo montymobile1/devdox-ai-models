@@ -9,7 +9,7 @@ from beanie import Document, Indexed
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from models_src.exceptions.exception_constants import EMBEDDINGS_INVALID_SIZE
-from models_src.models.document_extra.timestamp import TimestampAuditMixin
+from models_src.models.beanie_odm.document_extra.timestamp import TimestampAuditMixin
 
 EMBED_DIM = 768  # set to your model's dimension
 

@@ -2,7 +2,7 @@ from tortoise.models import Model
 from tortoise import fields
 import uuid
 
-from models_src.models.repo_enums import StatusTypes
+from models_src.models.common.repo_enums import StatusTypes
 
 
 class Repo(Model):

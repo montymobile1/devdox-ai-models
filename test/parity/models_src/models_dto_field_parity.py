@@ -10,12 +10,12 @@ from models_src.dto.git_label import GitLabelResponseDTO
 from models_src.dto.queue_job_claim_registry import QueueProcessingRegistryResponseDTO
 from models_src.dto.repo import RepoResponseDTO
 from models_src.dto.user import UserResponseDTO
-from models_src.models.api_key import APIKEY
-from models_src.models.code_chunks import CodeChunks
-from models_src.models.git_label import GitLabel
-from models_src.models.queue_job_claim_registry import QueueProcessingRegistry
-from models_src.models.repo import Repo
-from models_src.models.user import User
+from models_src.models.tortoise_orm.api_key import APIKEY
+from models_src.models.tortoise_orm.code_chunks import CodeChunks
+from models_src.models.tortoise_orm.git_label import GitLabel
+from models_src.models.tortoise_orm.queue_job_claim_registry import QueueProcessingRegistry
+from models_src.models.tortoise_orm.repo import Repo
+from models_src.models.tortoise_orm.user import User
 
 def symmetric_field_diff(
     dataclass_type: Type[dataclasses.dataclass],

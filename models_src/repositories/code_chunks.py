@@ -10,8 +10,8 @@ import numpy as np
 
 from models_src.dto.code_chunks import CodeChunksRequestDTO, CodeChunksResponseDTO
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
-from models_src.models.code_chunks import CodeChunks
-from models_src.models.code_chunks_document import CodeChunks as CodeChunksDocument, CodeChunksProjection, \
+from models_src.models.tortoise_orm.code_chunks import CodeChunks
+from models_src.models.beanie_odm.code_chunks_document import CodeChunks as CodeChunksDocument, CodeChunksProjection, \
     CodeChunksSearchProjection
 from models_src.models.db import PgVectorConnection
 

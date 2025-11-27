@@ -1,4 +1,4 @@
-from models_src.models.api_key_document import APIKEY
+from models_src.models.beanie_odm.api_key_document import APIKEY
 
 
 def test_document_str():

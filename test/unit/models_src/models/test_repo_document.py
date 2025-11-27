@@ -1,4 +1,4 @@
-from models_src.models.repo_document import Repo
+from models_src.models.beanie_odm.repo_document import Repo
 
 
 def test_document_str():

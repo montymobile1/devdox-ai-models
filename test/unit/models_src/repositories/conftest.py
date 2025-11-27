@@ -2,11 +2,11 @@ import pytest
 
 @pytest.fixture
 def no_tortoise_model_io(monkeypatch):
-    from models_src.models.api_key import APIKEY
-    from models_src.models.git_label import GitLabel
-    from models_src.models.queue_job_claim_registry import QueueProcessingRegistry
-    from models_src.models.repo import Repo
-    from models_src.models.user import User
+    from models_src.models.tortoise_orm.api_key import APIKEY
+    from models_src.models.tortoise_orm.git_label import GitLabel
+    from models_src.models.tortoise_orm.queue_job_claim_registry import QueueProcessingRegistry
+    from models_src.models.tortoise_orm.repo import Repo
+    from models_src.models.tortoise_orm.user import User
 
     async def _noop(self, *a, **k):  # instance async no-op
         return None

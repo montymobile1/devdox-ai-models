@@ -15,12 +15,12 @@ from .exceptions.base_exceptions import DevDoxModelsException
 from .exceptions.local_exception import JobAlreadyClaimed
 from .exceptions import exception_constants
 from .exceptions.utils import GitLabelErrors, internal_error, RepoErrors
-from .models.code_chunks_document import EMBED_DIM
+from .models.beanie_odm.code_chunks_document import EMBED_DIM
 
 # models
-from .models.queue_job_claim_registry_enums import QRegistryStat
-from .models.repo_enums import QueueJobType, StatusTypes
-from .models.queue_job_claim_registry_constants import queue_processing_registry_one_claim_unique
+from .models.common.queue_job_claim_registry_enums import QRegistryStat
+from .models.common.repo_enums import QueueJobType, StatusTypes
+from .models.common.queue_job_claim_registry_constants import queue_processing_registry_one_claim_unique
 
 # repositories
 from .repositories.api_key import ApiKeyStore, get_active_api_key_store, IApiKeyStore, InMemoryApiKeyBackend

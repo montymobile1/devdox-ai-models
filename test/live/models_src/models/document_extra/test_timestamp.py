@@ -9,7 +9,7 @@ from beanie.odm.operators.update.general import Set
 from pydantic import Field
 
 from models_src.db_inits.beanie_init import init_via_uri
-from models_src.models.document_extra.timestamp import TimestampAuditMixin
+from models_src.models.beanie_odm.document_extra.timestamp import TimestampAuditMixin
 
 MONGO_URI = "mongodb://localhost:27017/devdox"
 
