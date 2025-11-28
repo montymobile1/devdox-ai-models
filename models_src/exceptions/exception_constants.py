@@ -6,6 +6,9 @@ MISSING_API_KEY_USER_ID_LOG_MESSAGE = "user_id was None when trying to fetch Api
 MISSING_REPO_USER_ID_LOG_MESSAGE = "user_id was None when trying to fetch Repo"
 MISSING_USER_ID_TITLE = "MISSING_USER_ID"
 
+INVALID_HTML_URL_TITLE = "INVALID_HTML_URL"
+INVALID_HTML_URL_FIELD = "passed invalid html_url"
+
 LABEL_ALREADY_EXISTS_TITLE = "GIT_LABEL_ALREADY_EXISTS"
 LABEL_ALREADY_EXISTS_MESSAGE = "Git Label Already Exists"
 

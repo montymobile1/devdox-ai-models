@@ -3,7 +3,7 @@ from enum import Enum
 
 from models_src.exceptions.base_exceptions import DevDoxModelsException
 from models_src.exceptions.exception_constants import (
-    LABEL_ALREADY_EXISTS_MESSAGE,
+    INVALID_HTML_URL_FIELD, INVALID_HTML_URL_TITLE, LABEL_ALREADY_EXISTS_MESSAGE,
     LABEL_ALREADY_EXISTS_TITLE,
     MISSING_API_KEY_USER_ID_LOG_MESSAGE,
     MISSING_LABEL_ID_TITLE,
@@ -62,6 +62,11 @@ class RepoErrors(Enum):
     MISSING_USER_ID = {
         "error_type": MISSING_USER_ID_TITLE,
         "log_message": MISSING_API_KEY_USER_ID_LOG_MESSAGE,
+    }
+    
+    INVALID_HTML_URL = {
+        "error_type": INVALID_HTML_URL_TITLE,
+        "log_message": INVALID_HTML_URL_FIELD,
     }
 
 class UserErrors(Enum):

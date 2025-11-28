@@ -87,7 +87,10 @@ class IRepoStore(Protocol):
     async def find_by_repo_id_user_id(
             self, repo_id: str, user_id: str
     ) -> Optional[RepoResponseDTO]: ...
-
+    
+    @abstractmethod
+    async def find_all_by_user_id_and_html_urls(self, user_id: str, html_urls: set[str]) -> list[RepoResponseDTO]: ...
+    
 # --------------------------------------------------
 # Base Store
 # --------------------------------------------------
@@ -229,6 +232,20 @@ class RepoStore(IRepoStore):
         
         return await self._storage_backend.update_repo_parent_id(repo_id=repo_id, parent_repo_id=parent_repo_id)
     
+    
+    async def find_all_by_user_id_and_html_urls(self, user_id: str, html_urls: set[str]) -> list[RepoResponseDTO]:
+        if not html_urls or None in html_urls:
+            raise internal_error(**RepoErrors.INVALID_HTML_URL.value)
+        
+        for url in html_urls:
+            if not url or not url.strip():
+                raise internal_error(**RepoErrors.INVALID_HTML_URL.value)
+        
+        if not user_id or not user_id.strip():
+            raise internal_error(**RepoErrors.MISSING_USER_ID.value)
+        
+        return await self._storage_backend.find_all_by_user_id_and_html_urls(user_id=user_id, html_urls=html_urls)
+    
 # --------------------------------------------------
 # Storage Backend
 # --------------------------------------------------
@@ -359,14 +376,18 @@ class TortoiseRepoBackend(IRepoStore):
     async def find_by_user_and_path(
             self, user_id: str, relative_path: str
     ) -> RepoResponseDTO | None:
-        raw_data= await Repo.filter(user_id=user_id, relative_path=relative_path).first()
+        raw_data= await self.model.filter(user_id=user_id, relative_path=relative_path).first()
         return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
     
     async def find_by_user_and_alias_name(
             self, user_id: str, repo_alias_name: str
     ) -> RepoResponseDTO:
-        raw_data = await Repo.filter(user_id=user_id, repo_alias_name=repo_alias_name).first()
+        raw_data = await self.model.filter(user_id=user_id, repo_alias_name=repo_alias_name).first()
         return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
+    
+    async def find_all_by_user_id_and_html_urls(self, user_id: str, html_urls: set[str]) -> list[RepoResponseDTO]:
+        raw_data = await self.model.filter(user_id=user_id, html_url__in=html_urls)
+        return self.model_mapper.map_models_to_dataclasses_list(sources=raw_data, target_cls=RepoResponseDTO)
 
 class BeanieRepoBackend(IRepoStore):
     model = RepoDocument
@@ -521,7 +542,11 @@ class BeanieRepoBackend(IRepoStore):
         )
         
         return  1
-
+    
+    async def find_all_by_user_id_and_html_urls(self, user_id: str, html_urls: set[str]) -> list[RepoResponseDTO]:
+        raw_data = await self.model.find(self.model.user_id == user_id, In(self.model.html_url, html_urls)).to_list()
+        return self.model_mapper.map_documents_to_dataclasses_list(sources=raw_data, target_cls=RepoResponseDTO)
+    
 class InMemoryRepoBackend(IRepoStore):
     
     store_cls = RepoStore
@@ -767,6 +792,18 @@ class InMemoryRepoBackend(IRepoStore):
         
         return 1
     
+    async def find_all_by_user_id_and_html_urls(self, user_id: str, html_urls: set[str]) -> list[RepoResponseDTO]:
+        
+        data = self.get_data_store(user_id=user_id)
+        
+        filtered_by_id = []
+        for subdata in data:
+            if subdata.html_url in html_urls:
+                filtered_by_id.append(subdata)
+        
+        return filtered_by_id
+
+
 # --------------------------------------------------
 # Factory
 # --------------------------------------------------

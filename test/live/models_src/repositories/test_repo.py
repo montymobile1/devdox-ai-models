@@ -474,7 +474,133 @@ class TestRepoBackend:
         assert result_path_when_passing_to_none_existent_repo_parent_repo_id_x1 == 1
         assert result_path_when_passing_to_none_existent_repo_parent_repo_id_x2 == 0
         assert result_path_when_passing_to_none_existent_repo_parent_repo_id_x3 == 1
-
+    
+    async def test_find_by_user_id_and_html_url(self, repo):
+        user_id = "user-5"
+        
+        saved = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="url-id",
+                repo_name="url-id",
+                html_url="https://g.com/url-id",
+                repo_alias_name="url-alias",
+            )
+        )
+        
+        found = await repo.find_by_user_id_and_html_url(
+            user_id=user_id,
+            html_url="https://g.com/url-id",
+        )
+        assert found is not None
+        assert found.id == saved.id
+    
+    async def test_save_context_creates_pending_repo(self):
+        user_id = "user-6"
+        repo_id = "ctx-repo"
+        
+        saved = await repo.save_context(
+            repo_id=repo_id,
+            user_id=user_id,
+            config={"ignored": True},
+        )
+        
+        assert isinstance(saved, RepoResponseDTO)
+        assert saved.user_id == user_id
+        assert saved.repo_id == repo_id
+        assert saved.status == "pending"
+    
+    async def test_update_repo_system_reference_by_id(self, repo):
+        saved = await repo.save(
+            _make_repo_request(
+                user_id="mem-user-7",
+                repo_id="sys-ref",
+                repo_name="sys-ref",
+                html_url="https://g.com/sys-ref",
+                repo_alias_name="sys-ref-alias",
+            )
+        )
+        
+        updated = await repo.update_repo_system_reference_by_id(
+            id=str(saved.id),
+            repo_system_reference="sys-ref-123",
+        )
+        assert updated == 1
+        
+        refreshed = await repo.get_by_id(str(saved.id))
+        assert refreshed is not None
+        assert refreshed.repo_system_reference == "sys-ref-123"
+    
+    async def test_find_all_by_user_id_and_html_urls(self, repo):
+        user_id = "beanie-user-1"
+        user_id_2 = "beanie-user-2"
+        
+        s1 = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id=f"gid-{user_id}-1",
+                repo_name=f"test-repo-{user_id}-1",
+                html_url=f"https://gitlab.com/u/test-repo-{user_id}-1",
+                repo_alias_name=f"alias-{user_id}-1",
+            )
+        )
+        
+        s2 = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id=f"gid-{user_id}-2",
+                repo_name=f"test-repo-{user_id}-2",
+                html_url=f"https://gitlab.com/u/test-repo-{user_id}-2",
+                repo_alias_name=f"alias-{user_id}-2",
+            )
+        )
+        
+        s3 = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id=f"gid-{user_id}-3",
+                repo_name=f"test-repo-{user_id}-3",
+                html_url=f"https://gitlab.com/u/test-repo-{user_id}-3",
+                repo_alias_name=f"alias-{user_id}-3",
+            )
+        )
+        
+        s4 = await repo.save(
+            _make_repo_request(
+                user_id=user_id_2,
+                repo_id=f"gid-{user_id_2}-1",
+                repo_name=f"test-repo-{user_id_2}-1",
+                html_url=f"https://gitlab.com/u/test-repo-{user_id_2}-1",
+                repo_alias_name=f"alias-{user_id_2}-1",
+            )
+        )
+        
+        s5 = await repo.save(
+            _make_repo_request(
+                user_id=user_id_2,
+                repo_id=f"gid-{user_id_2}-2",
+                repo_name=f"test-repo-{user_id_2}-2",
+                html_url=f"https://gitlab.com/u/test-repo-{user_id_2}-2",
+                repo_alias_name=f"alias-{user_id_2}-2",
+            )
+        )
+        
+        html_urls_expected_to_come = set()
+        html_urls_expected_to_come.add(s1.html_url)
+        html_urls_expected_to_come.add(s5.html_url)
+        html_urls_expected_to_come.add(s1.html_url)
+        html_urls_expected_to_come.add("some none existent html_url")
+        
+        result = await repo.find_all_by_user_id_and_html_urls(user_id=user_id, html_urls=html_urls_expected_to_come)
+        returned_result_id = [str(d.id) for d in result]
+        
+        assert result
+        assert len(result) == 1
+        assert str(s1.id) in returned_result_id
+        assert str(s5.id) not in returned_result_id
+        assert str(s2.id) not in returned_result_id
+        assert str(s3.id) not in returned_result_id
+        assert str(s4.id) not in returned_result_id
     
     
 @pytest.mark.asyncio

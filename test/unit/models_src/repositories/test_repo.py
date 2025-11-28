@@ -244,7 +244,39 @@ class TestRepoStoreValidation:
             parent_repo_id=parent_repo_id,
         )
         assert result == -1
-
+        
+    @pytest.mark.parametrize(
+        "user_id, html_urls, error_obj",
+        [
+            ("valid_user_id", {"valid_url", None}, RepoErrors.INVALID_HTML_URL),
+            ("valid_user_id", {"valid_url", ""}, RepoErrors.INVALID_HTML_URL),
+            ("valid_user_id", {"valid_url", " "}, RepoErrors.INVALID_HTML_URL),
+            ("valid_user_id", None, RepoErrors.INVALID_HTML_URL),
+            (None, {"valid_url"}, RepoErrors.MISSING_USER_ID),
+            ("", {"valid_url"}, RepoErrors.MISSING_USER_ID),
+            (" ", {"valid_url"}, RepoErrors.MISSING_USER_ID),
+        ],
+        ids=[
+            "Invalid None in html_urls set", "Invalid Blank in html_urls set", "Invalid whitespace in html_urls set", "Invalid None html_urls set passed",
+            "None user_id", "Blank user_id", "Whitespace user_id"
+        ]
+    )
+    async def test_find_all_by_user_id_and_html_urls(self, user_id: str, html_urls: set[str], error_obj: RepoErrors):
+        store = self.repo_store(storage_backend=None)
+        
+        with pytest.raises(DevDoxModelsException) as exc_info:
+            await store.find_all_by_user_id_and_html_urls(
+                user_id=user_id, html_urls=html_urls
+            )
+        
+        exc = exc_info.value
+        error = error_obj.value
+        
+        assert exc.error_type == error["error_type"]
+        assert exc.user_message == error["log_message"]
+        assert exc.log_message == error["log_message"]
+    
+    
 @pytest.mark.asyncio
 class TestInMemoryRepoBackend(TestRepoBackend):
     __test__ = True
@@ -252,3 +284,6 @@ class TestInMemoryRepoBackend(TestRepoBackend):
     @pytest_asyncio.fixture
     async def repo(self):
         return InMemoryRepoBackend()
+    
+
+        
