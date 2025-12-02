@@ -4,11 +4,15 @@ from abc import abstractmethod
 from dataclasses import asdict
 from typing import Any, Optional, Protocol
 
-from beanie.odm.operators.update.general import Inc
+from beanie.odm.operators.update.general import Inc, Set
+from pymongo.errors import DuplicateKeyError
+from tortoise.exceptions import IntegrityError
 from tortoise.expressions import F
 
+from models_src.exceptions.utils import internal_error, UserErrors
 from models_src.dto.user import UserRequestDTO, UserResponseDTO
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
+from models_src.exceptions.local_exception import InMemoryDuplicate
 from models_src.models.tortoise_orm.user import User
 from models_src.models.beanie_odm.user_document import User as UserDocument
 
@@ -40,7 +44,10 @@ class UserStore(IUserStore):
         self._storage_backend = storage_backend
     
     async def save(self, user_model: UserRequestDTO) -> UserResponseDTO:
-        return await self._storage_backend.save(user_model=user_model)
+        try:
+            return await self._storage_backend.save(user_model=user_model)
+        except (DuplicateKeyError, IntegrityError, InMemoryDuplicate) as e:
+            raise internal_error(**UserErrors.USER_ALREADY_EXIST.value) from e
     
     async def find_by_user_id(self, user_id: str) -> Optional[UserResponseDTO]:
         if not user_id or not user_id.strip():
@@ -95,8 +102,12 @@ class TortoiseUserBackend(IUserStore):
         return mapped_model_to_dto
 
     async def increment_token_usage(self, user_id: str, tokens_used: int) -> int:
+        
+        now = datetime.datetime.now(datetime.timezone.utc)
+        
         return await self.model.filter(user_id=user_id).update(
-            token_used=F("token_used") + tokens_used
+            token_used=F("token_used") + tokens_used,
+            updated_at=now,
         )
     
     async def exists_by_user_id(self, user_id: str) -> bool:
@@ -128,8 +139,12 @@ class BeanieUserBackend(IUserStore):
         return self.model_mapper.map_document_to_dataclass(doc, UserResponseDTO)
 
     async def increment_token_usage(self, user_id: str, tokens_used: int) -> int:
+        
+        now = datetime.datetime.now(datetime.timezone.utc)
+        
         result = await self.model.find(self.model.user_id == user_id).update(
-            Inc({self.model.token_used: tokens_used})
+            Inc({self.model.token_used: tokens_used}),
+            Set({self.model.updated_at: now})
         )
         return result.matched_count
     
@@ -156,7 +171,10 @@ class InMemoryUserBackend(IUserStore):
         return self.__data_store
     
     def add_record(self, data: UserResponseDTO):
-        self.__data_store.setdefault(data.user_id, data)
+        if data.user_id in self.__data_store:
+            # mirror DB uniqueness behavior in memory
+            raise InMemoryDuplicate(reason="user_id_unique")
+        self.__data_store[data.user_id] = data
     
     def set_data_store(self, fake_data: list[UserResponseDTO]):
         
@@ -168,7 +186,9 @@ class InMemoryUserBackend(IUserStore):
     async def save(self, user_model: UserRequestDTO) -> UserResponseDTO:
         result = UserResponseDTO(**asdict(user_model))
         result.id = uuid.uuid4()
-        result.created_at = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        result.created_at = now
+        result.updated_at = now
         
         self.add_record(data=result)
         self.total_count += 1
@@ -185,6 +205,7 @@ class InMemoryUserBackend(IUserStore):
         
         if data:
             data.token_used += tokens_used
+            data.updated_at = datetime.datetime.now(datetime.timezone.utc)
             updated += 1
         
         return updated

@@ -20,7 +20,12 @@ class IApiKeyStore(Protocol):
 
     @abstractmethod
     async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO: ...
-
+    
+    @abstractmethod
+    async def find_all(
+            self
+    ) -> List[APIKeyResponseDTO]: ...
+    
     @abstractmethod
     async def find_all_by_user_id(
         self, offset, limit, user_id: str
@@ -34,7 +39,7 @@ class IApiKeyStore(Protocol):
 
     @abstractmethod
     async def update_is_active_by_user_id_and_api_key_id(
-        self, user_id, api_key_id, is_active
+        self, user_id: str, api_key_id: uuid.UUID, is_active: bool
     ) -> int: ...
 
     @abstractmethod
@@ -56,6 +61,10 @@ class ApiKeyStore(IApiKeyStore):
     
     async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
         return await self._storage_backend.save(create_model=create_model)
+    
+    async def find_all(self) -> List[APIKeyResponseDTO]:
+        return await self._storage_backend.find_all()
+
     
     async def find_all_by_user_id(self, offset, limit, user_id: str) -> List[APIKeyResponseDTO]:
         
@@ -147,7 +156,11 @@ class TortoiseApiKeyBackend(IApiKeyStore):
     async def count_by_user_id(self, user_id: str) -> int:
         query = self.__find_all_api_keys_query(user_id)
         return await query.count()
-
+    
+    async def find_all(self) -> List[APIKeyResponseDTO]:
+        data = await self.model.filter().order_by("-created_at").all()
+        return self.model_mapper.map_models_to_dataclasses_list(data, APIKeyResponseDTO)
+    
     async def find_all_by_user_id(
         self, offset, limit, user_id: str
     ) -> List[APIKeyResponseDTO]:
@@ -221,6 +234,10 @@ class BeanieApiKeyBackend(IApiKeyStore):
     async def count_by_user_id(self, user_id: str) -> int:
         return await self.__find_all_api_keys_query(user_id).count()
     
+    async def find_all(self) -> List[APIKeyResponseDTO]:
+        docs = await self.model.find().sort(-self.model.created_at).to_list()
+        return self.model_mapper.map_documents_to_dataclasses_list(docs, APIKeyResponseDTO)
+    
     async def find_all_by_user_id(
             self, offset: int, limit: int, user_id: str
     ) -> List[APIKeyResponseDTO]:
@@ -292,7 +309,9 @@ class InMemoryApiKeyBackend(IApiKeyStore):
     async def save(self, create_model: APIKeyRequestDTO) -> APIKeyResponseDTO:
         response = APIKeyResponseDTO(**asdict(create_model))
         response.id = uuid.uuid4()
-        response.created_at = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        response.created_at = now
+        response.updated_at = now
 
         self.add_record(response)
         self.existing_hash_set.add(response.api_key)
@@ -301,18 +320,30 @@ class InMemoryApiKeyBackend(IApiKeyStore):
         return response
 
     async def update_is_active_by_user_id_and_api_key_id(
-        self, user_id, api_key_id, is_active
+        self, user_id: str, api_key_id: uuid.UUID, is_active: bool
     ) -> int:
         updated = 0
 
         data: list = self.get_data_store(user_id=user_id)
 
         for index, value in enumerate(data):
-            if uuid.UUID(value.api_key) == api_key_id and value.is_active:
+            if value.id == api_key_id and value.is_active:
                 value.is_active = is_active
+                value.updated_at = datetime.datetime.now(datetime.timezone.utc)
                 updated += 1
         return updated
-
+    
+    async def find_all(self) -> List[APIKeyResponseDTO]:
+        data: dict[Any, List[APIKeyResponseDTO]] = self.get_data_store()
+        
+        sorted_data = sorted(
+            (item for items in data.values() for item in items),
+            key=lambda obj: obj.created_at,
+            reverse=True,
+        )
+        
+        return sorted_data
+    
     async def find_all_by_user_id(
         self, offset, limit, user_id
     ) -> List[APIKeyResponseDTO]:
@@ -323,8 +354,10 @@ class InMemoryApiKeyBackend(IApiKeyStore):
             key=lambda k: k.created_at,
             reverse=True,
         )
-
-        return sorted_data
+        
+        start = offset * limit
+        end = start + limit
+        return sorted_data[start:end]
 
     async def count_by_user_id(self, user_id: str) -> int:
         data: List[APIKeyResponseDTO] = self.get_data_store(user_id=user_id)

@@ -29,4 +29,3 @@ class QueueProcessingRegistryRequestDTO:
     claimed_by: Optional[str] = None
     previous_message_id: Optional[uuid.UUID] = None
     claimed_at: Optional[datetime.datetime] = None
-    updated_at: Optional[datetime.datetime] = None

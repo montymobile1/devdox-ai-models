@@ -9,7 +9,7 @@ class User(Model):
     """
 
     id = fields.UUIDField(primary_key=True, default=uuid.uuid4)
-    user_id = fields.CharField(max_length=255, description="User ID")
+    user_id = fields.CharField(max_length=255, unique=True, description="User ID")
 
     first_name = fields.CharField(max_length=255, description="First name of user")
     last_name = fields.CharField(max_length=255, description="Last name of user")

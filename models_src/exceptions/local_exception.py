@@ -24,3 +24,12 @@ class InMemoryNotFound(DevDoxModelsException):
 		super().__init__(
 			user_message=reason
 		)
+
+class InMemoryDuplicate(DevDoxModelsException):
+	"""
+	Used to simulate Beanie ODM `DuplicateKeyError` and Tortoise ORM `IntegrityError`
+	"""
+	def __init__(self, reason=None):
+		super().__init__(
+			user_message=reason
+		)

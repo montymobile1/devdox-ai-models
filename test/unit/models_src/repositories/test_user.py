@@ -1,82 +1,39 @@
-import datetime
-import uuid
-
 import pytest
+from pymongo.errors import DuplicateKeyError
+from tortoise.exceptions import IntegrityError
 
-from models_src import UserResponseDTO
-from models_src.repositories.user import InMemoryUserBackend, UserStore
-from test.conftest import _make_user_request
-
-
-@pytest.mark.asyncio
-class TestInMemoryUserStore:
-    inmemory_store = InMemoryUserBackend
-
-    async def test_save_and_find_by_user_id(self):
-        store = self.inmemory_store()
-
-        req = _make_user_request(
-            user_id="mem-user-1",
-            first_name="Carol",
-            last_name="Brown",
-            email="carol@example.com",
-            role="user",
-        )
-
-        saved = await store.save(req)
-
-        assert isinstance(saved, UserResponseDTO)
-        assert isinstance(saved.id, uuid.UUID)
-        assert saved.user_id == req.user_id
-        assert isinstance(saved.created_at, datetime.datetime)
-
-        fetched = await store.find_by_user_id("mem-user-1")
-        assert fetched is not None
-        assert fetched.id == saved.id
-
-    async def test_increment_token_usage_increments(self):
-        store = self.inmemory_store()
-
-        req = _make_user_request(
-            user_id="mem-user-2",
-            token_limit=1000,
-            token_used=10,
-        )
-        saved = await store.save(req)
-
-        updated = await store.increment_token_usage(
-            user_id="mem-user-2",
-            tokens_used=25,
-        )
-        assert updated == 1
-
-        refreshed = await store.find_by_user_id("mem-user-2")
-        assert refreshed is not None
-        assert refreshed.id == saved.id
-        assert refreshed.token_used == 35  # 10 + 25
-
-    async def test_increment_token_usage_missing_user_returns_zero(self):
-        store = self.inmemory_store()
-
-        updated = await store.increment_token_usage(
-            user_id="non-existent",
-            tokens_used=10,
-        )
-        assert updated == 0
-
-    async def test_exists_by_user_id_true_and_false(self):
-        store = self.inmemory_store()
-
-        req = _make_user_request(user_id="mem-user-3")
-        await store.save(req)
-
-        assert await store.exists_by_user_id("mem-user-3") is True
-        assert await store.exists_by_user_id("mem-user-missing") is False
-
+from models_src import DevDoxModelsException
+from models_src.repositories.user import UserStore
 
 @pytest.mark.asyncio
 class TestUserStoreValidation:
     user_store = UserStore
+
+    @pytest.mark.parametrize("exception_cls", [DuplicateKeyError, IntegrityError])
+    async def test_save_db_conflict_exceptions_wrapped_as_internal_error(
+        self,
+        exception_cls,
+    ):
+        """
+        UserStore.save should convert DuplicateKeyError / IntegrityError
+        into DevDoxModelsException via internal_error(USER_ALREADY_EXIST).
+        """
+
+        class FakeBackend:
+            async def save(self, user_model):
+                raise exception_cls("conflict")
+
+        store = self.user_store(storage_backend=FakeBackend())
+        dummy_user = object()
+
+        with pytest.raises(DevDoxModelsException) as exc_info:
+            await store.save(user_model=dummy_user)
+
+        exc = exc_info.value
+        # we don't rely on specific error_type string to avoid coupling;
+        # just assert it's our domain exception and log_level is error.
+        assert isinstance(exc, DevDoxModelsException)
+        assert exc.log_level == "error"
 
     @pytest.mark.parametrize("user_id", [None, "", " ", "\t"])
     async def test_find_by_user_id_invalid_returns_none(self, user_id):

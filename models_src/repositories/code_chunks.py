@@ -127,10 +127,13 @@ class TortoiseCodeChunksBackend(ICodeChunksStore):
         return self.model_mapper.map_model_to_dataclass(data, CodeChunksResponseDTO)
     
     async def bulk_save(self, create_model: list[CodeChunksRequestDTO]) -> List[CodeChunksResponseDTO]:
-        objs = [
-            self.model(**asdict(r))
-            for r in create_model
-        ]
+        try:
+            objs = [
+                self.model(**asdict(r))
+                for r in create_model
+            ]
+        except Exception as e:
+            print(e)
         
         _ = await self.model.bulk_create(objs, batch_size=1000)
         
@@ -139,7 +142,7 @@ class TortoiseCodeChunksBackend(ICodeChunksStore):
     async def find_all_by_repo_id_with_limit(
             self, repo_id: str, limit: int = 100
     ) -> List[CodeChunksResponseDTO]:
-        raw_data = await self.model.filter(repo_id=repo_id).limit(limit).all()
+        raw_data = await self.model.filter(repo_id=repo_id).order_by("-created_at").limit(limit).all()
         return self.model_mapper.map_models_to_dataclasses_list(
             raw_data, CodeChunksResponseDTO
         )
@@ -385,7 +388,11 @@ class InMemoryCodeChunksBackend(ICodeChunksStore):
     async def save(self, create_model: CodeChunksRequestDTO) -> CodeChunksResponseDTO:
         response = CodeChunksResponseDTO(**asdict(create_model))
         response.id = uuid.uuid4()
-        response.created_at = datetime.datetime.now(datetime.timezone.utc)
+        
+        now_date_time = datetime.datetime.now(datetime.timezone.utc)
+        
+        response.created_at = now_date_time
+        response.updated_at = now_date_time
         
         self.__data_store.append(response)
         self.total_count = len(self.__data_store)
@@ -397,7 +404,10 @@ class InMemoryCodeChunksBackend(ICodeChunksStore):
         for model in create_model:
             v = CodeChunksResponseDTO(**asdict(model))
             v.id = uuid.uuid4()
-            v.created_at = datetime.datetime.now(datetime.timezone.utc)
+            
+            now = datetime.datetime.now(datetime.timezone.utc)
+            v.created_at = now
+            v.updated_at = now
             
             response.append(v)
         
@@ -496,9 +506,6 @@ class InMemoryCodeChunksBackend(ICodeChunksStore):
             reverse=True,
         )
         return out[: max(1, int(limit))]
-
-
-
 
 # --------------------------------------------------
 # Factory

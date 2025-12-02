@@ -24,8 +24,16 @@ class QueueProcessingRegistry(Model):
     previous_message_id = fields.UUIDField(default=None, null=True)
 
     claimed_at = fields.DatetimeField(null=True)
-    updated_at = fields.DatetimeField(auto_now=True)
-
+    
+    created_at = fields.DatetimeField(
+        auto_now_add=True, description="Record creation timestamp"
+    )
+    updated_at = fields.DatetimeField(
+        auto_now=True, description="Record last update timestamp"
+    )
+    
+    
+    
     class Meta:
         table = "queue_processing_registry"
         indexes = [("message_id", "queue_name")]

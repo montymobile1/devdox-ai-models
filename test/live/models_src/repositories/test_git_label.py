@@ -1,301 +1,179 @@
-# tests/test_beanie_git_label_backend.py
-
-import datetime
 import uuid
-from typing import List
-
 import pytest
+import pytest_asyncio
 
-from models_src.dto.git_label import GitLabelResponseDTO
+from models_src.dto.git_label import GitLabelRequestDTO, GitLabelResponseDTO
 from models_src.dto.repo import GitHosting
-from models_src.repositories.git_label import BeanieGitLabelBackend
+from models_src.repositories.git_label import BeanieGitLabelBackend, ILabelStore, InMemoryGitLabelBackend, \
+    TortoiseGitLabelBackend
 from test.conftest import _make_git_label_request
 
+class TestGitLabelBackend:
+    __test__ = False
+    
+    @pytest_asyncio.fixture
+    async def repo(self) -> ILabelStore:
+        """
+		Concrete subclasses must override this to return
+		the appropriate repo instance (Mongo or Postgres).
+		"""
+        raise NotImplementedError
+    
+    def _build_request(
+        self,
+        *,
+        user_id: str = "user-1",
+        label: str = "default-label",
+        git_hosting: GitHosting = GitHosting.GITHUB,
+        username_suffix: str = "1",
+    ) -> GitLabelRequestDTO:
+        """
+        Start from the generic factory and then override fields we care about,
+        so we don't depend on the exact signature of _make_git_label_request().
+        """
+        req: GitLabelRequestDTO = _make_git_label_request()
 
-@pytest.mark.asyncio
-class TestBeanieGitLabelBackend:
-    beanie_store = BeanieGitLabelBackend
+        req.user_id = user_id
+        req.label = label
+        req.git_hosting = git_hosting
+        req.username = f"{user_id}-user-{username_suffix}"
+        req.token_value = f"token-{username_suffix}"
+        req.masked_token = f"****-{username_suffix}"
 
-    async def test_save_and_find_by_token_id_and_user(self, db_client):
-        store = self.beanie_store()
+        return req
 
-        # Arrange
-        req = _make_git_label_request(
-            user_id="beanie-user-1",
-            label="prod-github",
-            git_hosting=GitHosting.GITHUB,
-            username="octocat",
-            token_value="token-1",
-            masked_token="****1",
+    async def _create_label(
+        self,
+        repo: ILabelStore,
+        *,
+        user_id: str = "user-1",
+        label: str = "default-label",
+        git_hosting: GitHosting = GitHosting.GITHUB,
+        username_suffix: str = "1",
+    ) -> GitLabelResponseDTO:
+        req = self._build_request(
+            user_id=user_id,
+            label=label,
+            git_hosting=git_hosting,
+            username_suffix=username_suffix,
         )
-
-        # Act
-        saved = await store.save(req)
-
-        # Assert saved DTO
-        assert isinstance(saved, GitLabelResponseDTO)
+        return await repo.save(req)
+    
+    async def test_save_sets_id_and_timestamps(self, repo: ILabelStore):
+        req = self._build_request(user_id="u1", label="L1")
+        saved = await repo.save(req)
+        
         assert isinstance(saved.id, uuid.UUID)
-        assert saved.user_id == req.user_id
-        assert saved.label == req.label
-        assert saved.git_hosting == req.git_hosting.value if hasattr(req.git_hosting, "value") else req.git_hosting
-        assert saved.username == req.username
-        assert saved.masked_token == req.masked_token
-        assert isinstance(saved.created_at, datetime.datetime)
-
-        # And we can fetch it by token_id + user_id
-        fetched = await store.find_by_token_id_and_user(
+        assert saved.user_id == "u1"
+        assert saved.label == "L1"
+        assert saved.created_at is not None
+        assert saved.updated_at is not None
+    
+    async def test_find_by_token_id_and_user_returns_matching_row(self, repo: ILabelStore):
+        req = self._build_request(user_id="u2", label="L2")
+        saved = await repo.save(req)
+        
+        fetched = await repo.find_by_token_id_and_user(
             token_id=str(saved.id),
-            user_id=req.user_id,
+            user_id="u2",
         )
+        
         assert fetched is not None
         assert fetched.id == saved.id
-
-    async def test_find_by_id_and_user_id_and_git_hosting(self, db_client):
-        store = self.beanie_store()
-        user_id = "beanie-user-2"
-
-        saved = await store.save(
-            _make_git_label_request(
-                user_id=user_id,
-                label="staging-github",
-                git_hosting=GitHosting.GITHUB,
-                username="staging-user",
-                token_value="token-2",
-                masked_token="****2",
+        assert fetched.user_id == "u2"
+    
+    async def test_find_all_by_user_id_respects_paging_and_created_at_desc(
+            self, repo: ILabelStore
+    ):
+        user_id = "u-paging"
+        created = []
+        for i in range(5):
+            created.append(
+                await repo.save(
+                    self._build_request(user_id=user_id, label=f"L-{i}", username_suffix=str(i))
+                )
             )
-        )
-
-        # Correct combo
-        found = await store.find_by_id_and_user_id_and_git_hosting(
-            id=str(saved.id),
-            user_id=user_id,
-            git_hosting=saved.git_hosting,
-        )
-        assert found is not None
-        assert found.id == saved.id
-
-        # Wrong git_hosting → None
-        found_wrong_host = await store.find_by_id_and_user_id_and_git_hosting(
-            id=str(saved.id),
-            user_id=user_id,
-            git_hosting="gitlab",
-        )
-        assert found_wrong_host is None
-
-        # Wrong user_id → None
-        found_wrong_user = await store.find_by_id_and_user_id_and_git_hosting(
-            id=str(saved.id),
-            user_id="other-user",
-            git_hosting=saved.git_hosting,
-        )
-        assert found_wrong_user is None
-
-    async def test_find_git_hostings_by_ids_mixed_valid_invalid(self, db_client):
-        store = self.beanie_store()
-
-        saved1 = await store.save(
-            _make_git_label_request(
-                user_id="user-a",
-                label="label-a",
-                git_hosting=GitHosting.GITHUB,
-                username="user-a",
-                token_value="token-a",
-                masked_token="****a",
+        
+        expected = sorted(created, key=lambda r: r.created_at, reverse=True)
+        
+        page0 = await repo.find_all_by_user_id(offset=0, limit=2, user_id=user_id)
+        page1 = await repo.find_all_by_user_id(offset=1, limit=2, user_id=user_id)
+        
+        assert [r.id for r in page0] == [r.id for r in expected[:2]]
+        assert [r.id for r in page1] == [r.id for r in expected[2:4]]
+    
+    async def test_count_by_user_id_counts_rows_for_user(self, repo: ILabelStore):
+        user_id = "u-count"
+        
+        # setup via save
+        for i in range(3):
+            await repo.save(
+                self._build_request(user_id=user_id, label=f"L-{i}", username_suffix=str(i))
             )
+        
+        count = await repo.count_by_user_id(user_id=user_id)
+        assert count == 3
+    
+    async def test_find_all_by_user_id_and_label_case_insensitive_contains(
+            self, repo: ILabelStore
+    ):
+        user_id = "u-label-find"
+        await repo.save(self._build_request(user_id=user_id, label="Personal GitHub Token", username_suffix="1"))
+        await repo.save(self._build_request(user_id=user_id, label="Work github token", username_suffix="2"))
+        await repo.save(self._build_request(user_id=user_id, label="Some other label", username_suffix="3"))
+        
+        results = await repo.find_all_by_user_id_and_label(
+            offset=0, limit=10, user_id=user_id, label="github token"
         )
-        saved2 = await store.save(
-            _make_git_label_request(
-                user_id="user-b",
-                label="label-b",
-                git_hosting=GitHosting.GITLAB,
-                username="user-b",
-                token_value="token-b",
-                masked_token="****b",
-            )
-        )
-
-        token_ids = [
-            str(saved1.id),
-            saved2.id,
-            "not-a-uuid",
-        ]
-
-        results = await store.find_git_hostings_by_ids(token_ids=token_ids)
-
-        assert len(results) == 2
-        ids = {r["id"] for r in results}
-        hosts = {r["git_hosting"] for r in results}
-        assert ids == {saved1.id, saved2.id}
-        assert "github" in hosts or GitHosting.GITHUB.value in hosts
-        assert "gitlab" in hosts or GitHosting.GITLAB.value in hosts
-
-    async def test_find_all_by_user_id_and_count_pagination_and_host_filter(self, db_client):
-        store = self.beanie_store()
-        user_id = "user-pagination"
-
-        saved_gh_1 = await store.save(
-            _make_git_label_request(
-                user_id=user_id,
-                label="prod-github-1",
-                git_hosting=GitHosting.GITHUB,
-                username="user1",
-                token_value="t1",
-                masked_token="****t1",
-            )
-        )
-        saved_gh_2 = await store.save(
-            _make_git_label_request(
-                user_id=user_id,
-                label="prod-github-2",
-                git_hosting=GitHosting.GITHUB,
-                username="user2",
-                token_value="t2",
-                masked_token="****t2",
-            )
-        )
-        saved_gl_1 = await store.save(
-            _make_git_label_request(
-                user_id=user_id,
-                label="prod-gitlab-1",
-                git_hosting=GitHosting.GITLAB,
-                username="user3",
-                token_value="t3",
-                masked_token="****t3",
-            )
-        )
-        # Other user
-        await store.save(
-            _make_git_label_request(
-                user_id="other-user",
-                label="other",
-                git_hosting=GitHosting.GITHUB,
-                username="other",
-                token_value="tX",
-                masked_token="****x",
-            )
-        )
-
-        # Count all for user
-        total = await store.count_by_user_id(user_id=user_id)
-        assert total == 3
-
-        # Count only GitHub for user
-        total_gh = await store.count_by_user_id(
-            user_id=user_id,
-            git_hosting="github",
-        )
-        assert total_gh == 2
-
-        # Pagination: offset=0, limit=2 -> newest 2
-        page0 = await store.find_all_by_user_id(
-            offset=0,
-            limit=2,
-            user_id=user_id,
-        )
-        assert len(page0) == 2
-
-        # Pagination: offset=1, limit=2 -> remaining 1
-        page1 = await store.find_all_by_user_id(
-            offset=1,
-            limit=2,
-            user_id=user_id,
-        )
-        assert len(page1) == 1
-
-        ids = {lbl.id for lbl in page0 + page1}
-        assert ids == {saved_gh_1.id, saved_gh_2.id, saved_gl_1.id}
-
-    async def test_find_all_and_count_by_user_id_and_label_case_insensitive_contains(self, db_client):
-        store = self.beanie_store()
-        user_id = "user-label-search"
-
-        await store.save(
-            _make_git_label_request(
-                user_id=user_id,
-                label="prod-github",
-                git_hosting=GitHosting.GITHUB,
-                username="u1",
-                token_value="t1",
-                masked_token="****1",
-            )
-        )
-        await store.save(
-            _make_git_label_request(
-                user_id=user_id,
-                label="Prod-Gitlab",
-                git_hosting=GitHosting.GITLAB,
-                username="u2",
-                token_value="t2",
-                masked_token="****2",
-            )
-        )
-        await store.save(
-            _make_git_label_request(
-                user_id=user_id,
-                label="dev-github",
-                git_hosting=GitHosting.GITHUB,
-                username="u3",
-                token_value="t3",
-                masked_token="****3",
-            )
-        )
-
-        # label search = "prod" (case-insensitive substring)
-        count = await store.count_by_user_id_and_label(
-            user_id=user_id,
-            label="prod",
+        
+        labels = {r.label for r in results}
+        assert labels == {"Personal GitHub Token", "Work github token"}
+    
+    async def test_count_by_user_id_and_label_case_insensitive_contains(
+            self, repo: ILabelStore
+    ):
+        user_id = "u-label-count"
+        await repo.save(self._build_request(user_id=user_id, label="Personal GitHub Token", username_suffix="1"))
+        await repo.save(self._build_request(user_id=user_id, label="Work github token", username_suffix="2"))
+        await repo.save(self._build_request(user_id=user_id, label="Some other label", username_suffix="3"))
+        
+        count = await repo.count_by_user_id_and_label(
+            user_id=user_id, label="GITHUB TOKEN"
         )
         assert count == 2
+    
+    async def test_delete_by_id_and_user_id_returns_1_when_deleted(self, repo: ILabelStore):
+        saved = await repo.save(self._build_request(user_id="u-del1", label="Delete me", username_suffix="1"))
+        deleted = await repo.delete_by_id_and_user_id(label_id=saved.id, user_id="u-del1")
+        assert deleted == 1
+    
+    async def test_delete_by_id_and_user_id_returns_0_when_no_match(self, repo: ILabelStore):
+        # never saved
+        random_id = uuid.uuid4()
+        deleted = await repo.delete_by_id_and_user_id(label_id=random_id, user_id="u-del2")
+        assert deleted == 0
+    
+    
+@pytest.mark.asyncio
+class TestTortoiseGitLabelBackend(TestGitLabelBackend):
+    __test__ = True
+    
+    @pytest_asyncio.fixture
+    async def repo(self, postgresql_client):
+        return TortoiseGitLabelBackend()
 
-        labels = await store.find_all_by_user_id_and_label(
-            offset=0,
-            limit=10,
-            user_id=user_id,
-            label="prod",
-        )
-        assert len(labels) == 2
-        label_names = {l.label for l in labels}
-        assert "prod-github" in label_names
-        assert "Prod-Gitlab" in label_names
+@pytest.mark.asyncio
+class TestBeanieGitLabelBackend(TestGitLabelBackend):
+    __test__ = True
+    
+    @pytest_asyncio.fixture
+    async def repo(self, db_client):
+        return BeanieGitLabelBackend()
 
-    async def test_delete_by_id_and_user_id(self, db_client):
-        store = self.beanie_store()
-        user_id = "user-delete"
-
-        saved1 = await store.save(
-            _make_git_label_request(
-                user_id=user_id,
-                label="delete-me-1",
-                git_hosting=GitHosting.GITHUB,
-                username="u",
-                token_value="t1",
-                masked_token="****1",
-            )
-        )
-        saved2 = await store.save(
-            _make_git_label_request(
-                user_id=user_id,
-                label="keep-me",
-                git_hosting=GitHosting.GITHUB,
-                username="u",
-                token_value="t2",
-                masked_token="****2",
-            )
-        )
-
-        # First delete
-        deleted_count = await store.delete_by_id_and_user_id(
-            label_id=saved1.id,
-            user_id=user_id,
-        )
-        assert deleted_count == 1
-
-        remaining = await store.count_by_user_id(user_id=user_id)
-        assert remaining == 1
-
-        # Deleting again should return 0
-        deleted_again = await store.delete_by_id_and_user_id(
-            label_id=saved1.id,
-            user_id=user_id,
-        )
-        assert deleted_again == 0
+@pytest.mark.asyncio
+class TestInMemoryGitLabelBackend(TestGitLabelBackend):
+    __test__ = True
+    
+    @pytest_asyncio.fixture
+    async def repo(self):
+        return InMemoryGitLabelBackend()

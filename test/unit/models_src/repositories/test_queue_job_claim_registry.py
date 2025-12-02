@@ -1,12 +1,7 @@
-# tests/test_inmemory_queue_processing_registry_backend_and_store.py
-
-import datetime
 import uuid
 
 import pytest
 
-from models_src import GenericFakeStore
-from models_src.dto.queue_job_claim_registry import QueueProcessingRegistryResponseDTO
 from pymongo.errors import DuplicateKeyError
 
 from models_src.exceptions.base_exceptions import DevDoxModelsException
@@ -16,157 +11,16 @@ from models_src.models.common.queue_job_claim_registry_constants import (
     queue_processing_registry_one_claim_unique,
 )
 from models_src.models.common.queue_job_claim_registry_enums import QRegistryStat
-from models_src.repositories.queue_job_claim_registry import InMemoryQueueProcessingRegistryBackend, \
-	QueueProcessingRegistryStore
+from models_src.repositories.queue_job_claim_registry import QueueProcessingRegistryStore
 from test.conftest import _make_queue_registry_request
-
-
-@pytest.mark.asyncio
-class TestInMemoryQueueProcessingRegistryStore:
-    InMemo = InMemoryQueueProcessingRegistryBackend
-    
-    async def test_save_sets_id_and_claimed_at(self):
-        
-        fake = GenericFakeStore(in_memory_backend=self.InMemo())
-        
-        req = _make_queue_registry_request(
-            message_id="mem-msg-1",
-            queue_name="mem-queue",
-            step="step-1",
-            status=QRegistryStat.PENDING,
-            claimed_by="worker-1",
-        )
-
-        saved = await fake.save(req)
-
-        assert isinstance(saved, QueueProcessingRegistryResponseDTO)
-        assert isinstance(saved.id, uuid.UUID)
-        assert saved.message_id == req.message_id
-        assert saved.queue_name == req.queue_name
-        assert saved.status == req.status
-        assert saved.step == req.step
-        assert isinstance(saved.claimed_at, datetime.datetime)
-        assert fake.backend.total_count == 1
-
-    async def test_update_status_or_message_id_by_id_updates_and_returns_1(self):
-        
-        fake = GenericFakeStore(in_memory_backend=self.InMemo())
-        
-        req = _make_queue_registry_request(
-            message_id="mem-msg-update",
-            queue_name="mem-queue-update",
-            step="step-1",
-            status=QRegistryStat.PENDING,
-        )
-        saved = await fake.save(req)
-
-        updated = await fake.update_status_or_message_id_by_id(
-            id=str(saved.id),
-            status=QRegistryStat.IN_PROGRESS,
-            message_id="mem-msg-updated",
-        )
-        assert updated == 1
-
-        # Directly peek into data_store
-        data = fake.backend.data_store[saved.id]
-        assert data is not None
-        assert data.status == QRegistryStat.IN_PROGRESS
-        assert data.message_id == "mem-msg-updated"
-
-    async def test_update_status_or_message_id_by_id_returns_zero_for_missing_id(self):
-        
-        fake = GenericFakeStore(in_memory_backend=self.InMemo())
-
-        updated = await fake.update_status_or_message_id_by_id(
-            id=str(uuid.uuid4()),
-            status=QRegistryStat.PENDING,
-        )
-        assert updated == 0
-
-    async def test_update_step_by_id_updates_step(self):
-        
-        fake = GenericFakeStore(in_memory_backend=self.InMemo())
-
-        saved = await fake.save(
-            _make_queue_registry_request(
-                message_id="mem-msg-step",
-                queue_name="mem-queue-step",
-                step="step-1",
-                status=QRegistryStat.PENDING,
-            )
-        )
-
-        updated = await fake.update_step_by_id(id=str(saved.id), step="step-2")
-        assert updated == 1
-
-        data = fake.backend.data_store[saved.id]
-        assert data is not None
-        assert data.step == "step-2"
-
-    async def test_update_step_by_id_missing_id_returns_zero(self):
-        fake = GenericFakeStore(in_memory_backend=self.InMemo())
-
-        updated = await fake.update_step_by_id(id=str(uuid.uuid4()), step="step-2")
-        assert updated == 0
-
-    async def test_update_status_and_step_by_id_updates_both(self):
-        
-        fake = GenericFakeStore(in_memory_backend=self.InMemo())
-
-        saved = await fake.save(
-            _make_queue_registry_request(
-                message_id="mem-msg-both",
-                queue_name="mem-queue-both",
-                step="step-1",
-                status=QRegistryStat.PENDING,
-            )
-        )
-
-        updated = await fake.update_status_and_step_by_id(
-            id=str(saved.id),
-            status=QRegistryStat.COMPLETED,
-            step="step-final",
-        )
-        assert updated == 1
-
-        data = fake.backend.data_store[saved.id]
-        assert data is not None
-        assert data.status == QRegistryStat.COMPLETED
-        assert data.step == "step-final"
-
-    async def test_find_previous_latest_message_by_message_id_returns_first_match(self):
-        
-        fake = GenericFakeStore(in_memory_backend=self.InMemo())
-        
-        msg_id = "mem-msg-prev"
-
-        first = await fake.save(
-            _make_queue_registry_request(
-                message_id=msg_id,
-                queue_name="q1",
-                step="step-1",
-                status=QRegistryStat.PENDING,
-            )
-        )
-        await fake.save(
-            _make_queue_registry_request(
-                message_id=msg_id,
-                queue_name="q1",
-                step="step-2",
-                status=QRegistryStat.IN_PROGRESS,
-            )
-        )
-
-        result = await fake.find_previous_latest_message_by_message_id(message_id=msg_id)
-        assert result is not None
-        assert result.message_id == msg_id
-
 
 @pytest.mark.asyncio
 class TestQueueProcessingRegistryStoreValidation:
     queue_store = QueueProcessingRegistryStore
 
-    async def test_save_duplicate_key_error_with_index_name_raises_job_already_claimed(self):
+    async def test_save_duplicate_key_error_with_index_name_raises_job_already_claimed(
+        self,
+    ):
         class FakeBackend:
             async def save(self, create_model):
                 # Simulate DB duplicate error on the partial unique index

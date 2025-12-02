@@ -71,7 +71,7 @@ class IRepoStore(Protocol):
     ) -> int: ...
     
     @abstractmethod
-    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> RepoResponseDTO: ...
+    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> RepoResponseDTO | None: ...
     
     @abstractmethod
     async def find_by_user_and_alias_name(
@@ -200,7 +200,7 @@ class RepoStore(IRepoStore):
             repo_system_reference=repo_system_reference
         )
     
-    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> Optional[RepoResponseDTO]:
+    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> RepoResponseDTO | None:
         return await self._storage_backend.find_by_user_and_path(user_id=user_id, relative_path=relative_path)
     
     async def find_by_user_and_alias_name(self, user_id: str, repo_alias_name: str) -> Optional[RepoResponseDTO]:
@@ -232,7 +232,7 @@ class TortoiseRepoBackend(IRepoStore):
         
         list_raw_data = (
             await self.model.filter(user_id=user_id)
-            .order_by("-created_at")
+            .order_by("-created_at", "-repo_id")
             .offset(offset * limit)
             .limit(limit)
             .all()
@@ -250,14 +250,27 @@ class TortoiseRepoBackend(IRepoStore):
         return self.model_mapper.map_model_to_dataclass(
             saved_raw_data, RepoResponseDTO
         )
-        
+    
     
     async def save_context(
             self, repo_id: str, user_id: str, config: dict
     ) -> RepoResponseDTO:
-        raw_data = await Repo.create(
-            repo_id=repo_id, user_id=user_id, config=config, status="pending"
-        )
+        """
+        Tortoise backend: config is ignored (no column).
+        We treat save_context as a 'kick-off' that marks an existing repo as pending.
+        """
+        updated = await self.model.filter(
+            user_id=user_id,
+            repo_id=repo_id,
+        ).update(status=StatusTypes.PENDING)
+        
+        if updated == 0:
+            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value)
+        
+        raw_data = await self.model.filter(
+            user_id=user_id,
+            repo_id=repo_id,
+        ).first()
         return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
     
     async def get_by_id(self, repo_id: str) -> RepoResponseDTO:
@@ -311,7 +324,7 @@ class TortoiseRepoBackend(IRepoStore):
     
     async def find_by_user_and_path(
             self, user_id: str, relative_path: str
-    ) -> RepoResponseDTO:
+    ) -> RepoResponseDTO | None:
         raw_data= await Repo.filter(user_id=user_id, relative_path=relative_path).first()
         return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
     
@@ -350,7 +363,7 @@ class BeanieRepoBackend(IRepoStore):
         result = await self.model.find(
             self.model.user_id == user_id,
             self.model.repo_id == repo_id,
-            ).update(
+        ).update(
             Set({self.model.status: StatusTypes.PENDING})
         )
         
@@ -401,7 +414,7 @@ class BeanieRepoBackend(IRepoStore):
     
     async def find_all_by_user_id(self, user_id: str, offset: int, limit: int) -> List[RepoResponseDTO]:
         q = self.__find_all_by_user_query(user_id)
-        docs = await q.sort(-self.model.created_at).skip(offset * limit).limit(limit).to_list()
+        docs = await q.sort(-self.model.created_at, -self.model.repo_id).skip(offset * limit).limit(limit).to_list()
         return self.model_mapper.map_documents_to_dataclasses_list(docs, RepoResponseDTO)
     
     async def count_by_user_id(self, user_id: str) -> int:
@@ -434,7 +447,7 @@ class BeanieRepoBackend(IRepoStore):
         )
         return result.matched_count
     
-    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> Optional[RepoResponseDTO]:
+    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> RepoResponseDTO | None:
         doc = await self.model.find(
             self.model.user_id == user_id, self.model.relative_path == relative_path
         ).first_or_none()
@@ -482,7 +495,19 @@ class InMemoryRepoBackend(IRepoStore):
     ) -> List[RepoResponseDTO]:
         data = self.get_data_store(user_id=user_id)
         
-        return data[offset : offset + limit]
+        # Sort like DBs: created_at DESC, repo_id DESC as tie-breaker
+        data_sorted = sorted(
+            data,
+            key=lambda r: (
+                r.created_at or datetime.datetime.min,
+                r.repo_id or "",
+            ),
+            reverse=True,
+        )
+        
+        start = offset * limit
+        end = start + limit
+        return data_sorted[start:end]
     
     async def count_by_user_id(self, user_id: str) -> int:
         data = self.get_data_store(user_id=user_id)
@@ -490,13 +515,23 @@ class InMemoryRepoBackend(IRepoStore):
         return len(data)
     
     async def save(self, repo_model: RepoRequestDTO) -> RepoResponseDTO:
+        # Enforce unique (user_id, repo_id) like DB backends
+        existing = await self.find_by_repo_id_user_id(
+            repo_id=repo_model.repo_id,
+            user_id=repo_model.user_id,
+        )
+        if existing is not None:
+            raise DuplicateKeyError("duplicate key: (user_id, repo_id)")
+
+        now = datetime.datetime.now(datetime.timezone.utc)
         response = RepoResponseDTO(**asdict(repo_model))
         response.id = uuid.uuid4()
-        
+        response.created_at = now
+        response.updated_at = now
+
         self.add_record(data=response)
-        
         self.total_count += 1
-        
+
         return response
     
     async def get_by_id(self, repo_id: str) -> RepoResponseDTO:
@@ -532,7 +567,7 @@ class InMemoryRepoBackend(IRepoStore):
     async def find_by_id(self, id: str) -> Optional[RepoResponseDTO]:
         match = None
         for key, obj_list in self.get_data_store().items():
-            match = next((obj for obj in obj_list if str(obj.id == id)), None)
+            match = next((obj for obj in obj_list if str(obj.id) == id), None)
             if match:
                 break
         
@@ -553,11 +588,13 @@ class InMemoryRepoBackend(IRepoStore):
         for key, obj_list in data.items():
             match = next((obj for obj in obj_list if str(obj.id) == id), None)
             if match:
+                now = datetime.datetime.now(datetime.timezone.utc)
                 match.status = status
                 match.processing_end_time = processing_end_time
                 match.total_files = total_files
                 match.total_chunks = total_chunks
                 match.total_embeddings = total_embeddings
+                match.updated_at = now
                 updated += 1
                 break
         
@@ -582,17 +619,18 @@ class InMemoryRepoBackend(IRepoStore):
             self, repo_id: str, user_id: str, config: dict
     ) -> RepoResponseDTO:
         """
-        config: Ignore since it is only applicable to Tortoise ORM
+        In-memory save_context: mirror DB behaviour.
+        Ignore `config`, set status=PENDING on an existing repo row.
         """
-
-        response = RepoResponseDTO(repo_id=repo_id, user_id=user_id, status="pending")
-        response.id = uuid.uuid4()
+        user_repos = self.get_data_store(user_id=user_id)
+        match = next((obj for obj in user_repos if obj.repo_id == repo_id), None)
         
-        self.add_record(data=response)
+        if not match:
+            # Align with Beanie/Tortoise: same DevDoxModelsException
+            raise internal_error(**RepoErrors.REPOSITORY_DOESNT_EXIST.value)
         
-        self.total_count += 1
-        
-        return response
+        match.status = StatusTypes.PENDING
+        return match
     
     async def update_repo_system_reference_by_id(
             self, id: str, repo_system_reference: str
@@ -610,7 +648,7 @@ class InMemoryRepoBackend(IRepoStore):
         
         return updated
     
-    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> RepoResponseDTO:
+    async def find_by_user_and_path(self, user_id: str, relative_path: str) -> RepoResponseDTO | None:
         all_data = self.get_data_store(user_id=user_id)
         
         result = None

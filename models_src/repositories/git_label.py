@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from abc import abstractmethod
 from dataclasses import asdict
@@ -417,24 +418,30 @@ class InMemoryGitLabelBackend(ILabelStore):
         self.total_count = full_total
     
     async def save(self, label_model: GitLabelRequestDTO) -> GitLabelResponseDTO:
-        
         retrieved_data = self.get_data_store(user_id=label_model.user_id)
         
         found = False
         for record in retrieved_data:
-            if record.git_hosting == label_model.git_hosting and record.masked_token == label_model.masked_token:
+            if (
+                    record.git_hosting == label_model.git_hosting
+                    and record.masked_token == label_model.masked_token
+            ):
                 found = True
                 break
         
         if found:
             raise DuplicateKeyError("Duplicate key")
         
+        now = datetime.datetime.now(datetime.timezone.utc)
+        
         result = GitLabelResponseDTO(**asdict(label_model))
         result.id = uuid.uuid4()
-
+        result.created_at = now
+        result.updated_at = now
+        
         self.add_record(data=result)
         self.total_count += 1
-
+        
         return result
     
     
@@ -442,8 +449,11 @@ class InMemoryGitLabelBackend(ILabelStore):
         self, token_ids: Collection[Union[str, UUID]]
     ) -> List[Dict]:
         match_list = []
+        
+        normalized_ids = {str(t) for t in token_ids}
+        
         for key, obj_list in self.__data_store.items():
-            matches = [obj for obj in obj_list if str(obj.id) in token_ids]
+            matches = [obj for obj in obj_list if str(obj.id) in normalized_ids]
             for match in matches:
                 match_list.append({"id": match.id, "git_hosting": match.git_hosting})
 
@@ -476,53 +486,68 @@ class InMemoryGitLabelBackend(ILabelStore):
                 break
 
         return match
-
-
+    
+    
     async def find_all_by_user_id(
-        self, offset, limit, user_id, git_hosting: Optional[str] = None
+            self, offset, limit, user_id, git_hosting: Optional[str] = None
     ) -> list[GitLabelResponseDTO]:
-        data = self.get_data_store(user_id=user_id)
-        return data[offset : offset + limit]
-
-
-    async def count_by_user_id(self, user_id, git_hosting: Optional[str] = None) -> int:
-        data = self.get_data_store(user_id=user_id)
-
-        count = len(data) if data else 0
-
+        data = list(self.get_data_store(user_id=user_id) or [])
+        
+        # optional git_hosting filter – to match Tortoise/Beanie semantics
         if git_hosting:
-            count = 0
-            for record in data:
-                if record.git_hosting == git_hosting:
-                    count += 1
-
-        return count
-
+            data = [r for r in data if r.git_hosting == git_hosting]
+        
+        # order by created_at DESC (fallback if created_at is None)
+        data.sort(
+            key=lambda r: r.created_at or datetime.datetime.min,
+            reverse=True,
+        )
+        
+        # page index semantics, like .offset(offset * limit)
+        start = offset * limit
+        end = start + limit
+        return data[start:end]
+    
+    
+    async def count_by_user_id(self, user_id, git_hosting: Optional[str] = None) -> int:
+        data = self.get_data_store(user_id=user_id) or []
+        
+        if git_hosting:
+            data = [r for r in data if r.git_hosting == git_hosting]
+        
+        return len(data)
+    
     async def find_all_by_user_id_and_label(
-        self, offset, limit, user_id, label: str
+            self, offset, limit, user_id, label: str
     ) -> list[GitLabelResponseDTO]:
-        data = self.get_data_store(user_id=user_id)
-
-        results = []
-        for record in data:
-            if record.label == label:
-                results.append(record)
-
-        return results[offset : offset + limit]
-
-
+        data = self.get_data_store(user_id=user_id) or []
+        
+        needle = label.lower()
+        filtered = [
+            r for r in data
+            if r.label and needle in r.label.lower()
+        ]
+        
+        # order by created_at DESC
+        filtered.sort(
+            key=lambda r: r.created_at or datetime.datetime.min,
+            reverse=True,
+        )
+        
+        start = offset * limit
+        end = start + limit
+        return filtered[start:end]
+    
+    
     async def count_by_user_id_and_label(self, user_id, label: str) -> int:
-        user_id_data = self.get_data_store(user_id=user_id)
-
-        if label:
-            count = 0
-            for record in user_id_data:
-                if record.label == label:
-                    count += 1
-
-            return count
-        else:
-            return len(user_id_data) if user_id_data else 0
+        data = self.get_data_store(user_id=user_id) or []
+        
+        needle = label.lower()
+        filtered = [
+            r for r in data
+            if r.label and needle in r.label.lower()
+        ]
+        return len(filtered)
 
     async def delete_by_id_and_user_id(self, label_id: uuid.UUID, user_id: str) -> int:
         data = self.get_data_store(user_id=user_id)

@@ -41,9 +41,17 @@ class User(TimestampAuditMixin, Document):
         description = "User information from Clerk"
         
         indexes = [
+            
             pymongo.IndexModel(
-                [("user_id", pymongo.ASCENDING), ("created_at", pymongo.DESCENDING)]
-            )
+                [("user_id", pymongo.ASCENDING)],
+                name="user_user_id_unique",
+                unique=True,
+            ),
+            
+            pymongo.IndexModel(
+                [("created_at", pymongo.DESCENDING)],
+                name="user_created_at_desc",
+            ),
         ]
 
     def __str__(self) -> str:
