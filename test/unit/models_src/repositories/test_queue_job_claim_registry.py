@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+import pytest_asyncio
 
 from pymongo.errors import DuplicateKeyError
 
@@ -11,8 +12,11 @@ from models_src.models.common.queue_job_claim_registry_constants import (
     queue_processing_registry_one_claim_unique,
 )
 from models_src.models.common.queue_job_claim_registry_enums import QRegistryStat
-from models_src.repositories.queue_job_claim_registry import QueueProcessingRegistryStore
+from models_src.repositories.queue_job_claim_registry import InMemoryQueueProcessingRegistryBackend, \
+    QueueProcessingRegistryStore
 from test.conftest import _make_queue_registry_request
+from test.live.models_src.repositories.test_queue_job_claim_registry import TestQueueProcessingRegistryBackend
+
 
 @pytest.mark.asyncio
 class TestQueueProcessingRegistryStoreValidation:
@@ -146,3 +150,11 @@ class TestQueueProcessingRegistryStoreValidation:
             message_id=message_id
         )
         assert result is None
+
+@pytest.mark.asyncio
+class TestInMemoryQueueProcessingRegistryBackend(TestQueueProcessingRegistryBackend):
+    __test__ = True
+    
+    @pytest_asyncio.fixture
+    async def repo(self):
+        return InMemoryQueueProcessingRegistryBackend()

@@ -1,11 +1,10 @@
 import uuid
 
 import pytest
+import pytest_asyncio
 from pymongo.errors import DuplicateKeyError
 from tortoise.exceptions import IntegrityError
 
-from models_src.dto.git_label import GitLabelResponseDTO
-from models_src.dto.repo import GitHosting
 from models_src.exceptions.base_exceptions import DevDoxModelsException
 from models_src.exceptions.exception_constants import (
     LABEL_ALREADY_EXISTS_MESSAGE,
@@ -20,6 +19,8 @@ from models_src.repositories.git_label import (
     InMemoryGitLabelBackend,
 )
 from test.conftest import _make_git_label_request
+from test.live.models_src.repositories.test_git_label import TestGitLabelBackend
+
 
 @pytest.mark.asyncio
 class TestGitLabelStoreValidation:
@@ -275,3 +276,12 @@ class TestGitLabelStoreValidation:
             user_id=user_id,
         )
         assert result == expected
+
+
+@pytest.mark.asyncio
+class TestInMemoryGitLabelBackend(TestGitLabelBackend):
+    __test__ = True
+    
+    @pytest_asyncio.fixture
+    async def repo(self):
+        return InMemoryGitLabelBackend()

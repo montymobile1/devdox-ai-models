@@ -1,10 +1,14 @@
 import datetime
 
 import pytest
+import pytest_asyncio
+
 from models_src.exceptions.base_exceptions import DevDoxModelsException
 
 from models_src.exceptions.exception_constants import MISSING_API_KEY_USER_ID_LOG_MESSAGE, MISSING_USER_ID_TITLE
-from models_src.repositories.api_key import ApiKeyStore
+from models_src.repositories.api_key import ApiKeyStore, InMemoryApiKeyBackend
+from test.live.models_src.repositories.test_api_key import TestApiKeyBackend
+
 
 @pytest.mark.asyncio
 class TestApiKeyStoreValidation:
@@ -135,3 +139,11 @@ class TestApiKeyStoreValidation:
             last_used_at=now,
         )
         assert result == -1
+
+@pytest.mark.asyncio
+class TestInMemoryApiKeyBackend(TestApiKeyBackend):
+    __test__ = True
+    
+    @pytest_asyncio.fixture
+    async def repo(self):
+        return InMemoryApiKeyBackend()

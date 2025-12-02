@@ -1,14 +1,11 @@
-import datetime
-import uuid
-from time import sleep
-
 import pytest
+import pytest_asyncio
 
-from models_src.dto.code_chunks import CodeChunksResponseDTO
 from models_src.repositories.code_chunks import (
     InMemoryCodeChunksBackend, CodeChunksStore
 )
-from test.conftest import _make_code_chunks_request
+from test.live.models_src.repositories.test_code_chunks import TestCodeChunksBackend
+
 
 @pytest.mark.asyncio
 class TestCodeChunksStoreValidation:
@@ -117,3 +114,11 @@ class TestCodeChunksStoreValidation:
             limit=10,
         )
         assert result == []
+
+@pytest.mark.asyncio
+class TestInMemoryCodeChunksBackend(TestCodeChunksBackend):
+    __test__ = True
+    
+    @pytest_asyncio.fixture
+    async def repo(self):
+        return InMemoryCodeChunksBackend()

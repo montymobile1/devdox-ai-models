@@ -1,9 +1,12 @@
 import pytest
+import pytest_asyncio
 from pymongo.errors import DuplicateKeyError
 from tortoise.exceptions import IntegrityError
 
 from models_src import DevDoxModelsException
-from models_src.repositories.user import UserStore
+from models_src.repositories.user import InMemoryUserBackend, UserStore
+from test.live.models_src.repositories.test_user import TestUserBackend
+
 
 @pytest.mark.asyncio
 class TestUserStoreValidation:
@@ -73,3 +76,12 @@ class TestUserStoreValidation:
 
         result = await store.exists_by_user_id(user_id=user_id)
         assert result is False
+
+
+@pytest.mark.asyncio
+class TestInMemoryUserBackend(TestUserBackend):
+    __test__ = True
+    
+    @pytest_asyncio.fixture
+    async def repo(self):
+        return InMemoryUserBackend()

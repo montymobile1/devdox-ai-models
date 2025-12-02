@@ -2,15 +2,18 @@ import datetime
 import uuid
 
 import pytest
+import pytest_asyncio
 from beanie.exceptions import DocumentNotFound
 from pymongo.errors import DuplicateKeyError
 
 from models_src.exceptions.base_exceptions import DevDoxModelsException
 from models_src.exceptions.utils import RepoErrors
 from models_src.repositories.repo import (
-    RepoStore,
+    InMemoryRepoBackend, RepoStore,
 )
 from test.conftest import _make_repo_request
+from test.live.models_src.repositories.test_repo import TestRepoBackend
+
 
 @pytest.mark.asyncio
 class TestRepoStoreValidation:
@@ -207,3 +210,11 @@ class TestRepoStoreValidation:
             repo_system_reference=repo_system_reference,
         )
         assert result == expected
+
+@pytest.mark.asyncio
+class TestInMemoryRepoBackend(TestRepoBackend):
+    __test__ = True
+    
+    @pytest_asyncio.fixture
+    async def repo(self):
+        return InMemoryRepoBackend()
