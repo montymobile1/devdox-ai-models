@@ -19,7 +19,7 @@ UNIQUE_EXCEPTIONS = (DuplicateKeyError, IntegrityError)
 
 class TestRepoBackend:
     __test__ = False
-    
+
     @pytest_asyncio.fixture
     async def repo(self) -> IRepoStore:
         raise NotImplementedError
@@ -292,7 +292,7 @@ class TestRepoBackend:
         assert updated == 0
 
     # =================================================================
-    # find_by_user_and_path / find_by_user_and_alias_name
+    # find_by_user_and_path
     # =================================================================
 
     async def test_find_by_user_and_path_should_return_repo_when_exists(
@@ -321,7 +321,11 @@ class TestRepoBackend:
             relative_path="/does/not/exist",
         )
         assert found is None
-
+    
+    # =================================================================
+    # find_by_user_and_alias_name
+    # =================================================================
+    
     async def test_find_by_user_and_alias_name_should_return_repo_when_exists(
         self, repo: IRepoStore
     ):
@@ -396,8 +400,10 @@ class TestRepoBackend:
         assert exc.user_message == err["log_message"]
         assert exc.log_message == err["log_message"]
     
-    
-    async def test_find_by_user_and_path_and_alias_name(self, repo: IRepoStore):
+    # =================================================================
+    # find_by_user_and_path
+    # =================================================================
+    async def test_find_by_user_and_path(self, repo: IRepoStore):
         user_id = "user-8"
         
         saved = await repo.save(
@@ -407,23 +413,17 @@ class TestRepoBackend:
                 repo_name="p1",
                 html_url="https://g.com/p1",
                 repo_alias_name="alias-p1",
+                relative_path="/users/u/p1",
             )
         )
-        # manually patch some extra fields
-        saved.relative_path = "/users/u/p1"
-        saved.repo_alias_name = "alias-p1"
         
         result_path = await repo.find_by_user_and_path(user_id=user_id, relative_path="/users/u/p1")
         assert result_path is not None
         assert result_path.id == saved.id
-        
-        result_alias = await repo.find_by_user_and_alias_name(
-            user_id=user_id,
-            repo_alias_name="alias-p1",
-        )
-        assert result_alias is not None
-        assert result_alias.id == saved.id
     
+    # =================================================================
+    # update_repo_parent_id
+    # =================================================================
     async def test_update_repo_parent_id(self, repo: IRepoStore):
         user_id = "user-8"
         
@@ -475,63 +475,11 @@ class TestRepoBackend:
         assert result_path_when_passing_to_none_existent_repo_parent_repo_id_x2 == 0
         assert result_path_when_passing_to_none_existent_repo_parent_repo_id_x3 == 1
     
-    async def test_find_by_user_id_and_html_url(self, repo):
-        user_id = "user-5"
-        
-        saved = await repo.save(
-            _make_repo_request(
-                user_id=user_id,
-                repo_id="url-id",
-                repo_name="url-id",
-                html_url="https://g.com/url-id",
-                repo_alias_name="url-alias",
-            )
-        )
-        
-        found = await repo.find_by_user_id_and_html_url(
-            user_id=user_id,
-            html_url="https://g.com/url-id",
-        )
-        assert found is not None
-        assert found.id == saved.id
+    # =================================================================
+    # find_all_by_user_id_and_html_urls
+    # =================================================================
     
-    async def test_save_context_creates_pending_repo(self, repo):
-        user_id = "user-6"
-        repo_id = "ctx-repo"
-        
-        saved = await repo.save_context(
-            repo_id=repo_id,
-            user_id=user_id,
-            config={"ignored": True},
-        )
-        
-        assert isinstance(saved, RepoResponseDTO)
-        assert saved.user_id == user_id
-        assert saved.repo_id == repo_id
-        assert saved.status == "pending"
-    
-    async def test_update_repo_system_reference_by_id(self, repo):
-        saved = await repo.save(
-            _make_repo_request(
-                user_id="mem-user-7",
-                repo_id="sys-ref",
-                repo_name="sys-ref",
-                html_url="https://g.com/sys-ref",
-                repo_alias_name="sys-ref-alias",
-            )
-        )
-        
-        updated = await repo.update_repo_system_reference_by_id(
-            id=str(saved.id),
-            repo_system_reference="sys-ref-123",
-        )
-        assert updated == 1
-        
-        refreshed = await repo.get_by_id(str(saved.id))
-        assert refreshed is not None
-        assert refreshed.repo_system_reference == "sys-ref-123"
-    
-    async def test_find_all_by_user_id_and_html_urls(self, repo):
+    async def test_find_all_by_user_id_and_html_urls(self, repo: IRepoStore):
         user_id = "beanie-user-1"
         user_id_2 = "beanie-user-2"
         

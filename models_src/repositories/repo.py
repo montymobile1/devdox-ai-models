@@ -336,15 +336,31 @@ class TortoiseRepoBackend(IRepoStore):
         return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
 
     async def update_repo_parent_id(self, repo_id: str, parent_repo_id: str) -> int:
-        repo = await self.model.get(id=repo_id)
-
-        # Ensure we have a list
-        parent_ids = repo.repo_parent_id or []
-        if parent_repo_id not in parent_ids:
-            parent_ids.append(parent_repo_id)
-            repo.repo_parent_id = parent_ids
-            await repo.save()
-        return len(parent_ids)
+        
+        repos = await self.model.filter(id__in=[uuid.UUID(repo_id), uuid.UUID(parent_repo_id)])
+        
+        found_repo = None
+        found_parent_repo = None
+        for rp in repos:
+            if  repo_id == str(rp.id):
+                found_repo = rp
+            
+            if  parent_repo_id == str(rp.id):
+                found_parent_repo = rp
+            
+            if found_repo and found_parent_repo:
+                break
+        
+        if (not found_repo and not found_parent_repo) or (found_repo.repo_parent_id and (str(found_parent_repo.id) in found_repo.repo_parent_id)):
+            return 0
+        
+        parent_ids = found_repo.repo_parent_id or []
+        
+        parent_ids.append(parent_repo_id)
+        
+        updated_count = await self.model.filter(id=found_repo.id).update(repo_parent_id=parent_ids)
+        
+        return updated_count
 
     async def update_analysis_metadata_by_id(
             self,
