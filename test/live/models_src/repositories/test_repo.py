@@ -495,7 +495,7 @@ class TestRepoBackend:
         assert found is not None
         assert found.id == saved.id
     
-    async def test_save_context_creates_pending_repo(self):
+    async def test_save_context_creates_pending_repo(self, repo):
         user_id = "user-6"
         repo_id = "ctx-repo"
         
