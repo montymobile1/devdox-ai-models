@@ -13,7 +13,7 @@ from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.models.tortoise_orm.code_chunks import CodeChunks
 from models_src.models.beanie_odm.code_chunks_document import CodeChunks as CodeChunksDocument, CodeChunksProjection, \
     CodeChunksSearchProjection
-from models_src.models.db import PgVectorConnection
+from models_src.db_inits.tortoise_init import PgVectorConnection
 
 
 # --------------------------------------------------

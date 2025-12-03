@@ -4,6 +4,8 @@ import types
 import pytest
 from unittest.mock import AsyncMock
 
+import models_src.db_inits.tortoise_init
+
 # ---- Optional safety: make imports succeed even if asyncpg/pgvector aren't installed
 if "asyncpg" not in sys.modules:
     asyncpg_stub = types.ModuleType("asyncpg")
@@ -90,7 +92,7 @@ class TestPgVectorConnection:
         monkeypatch.setattr(db_mod.connections, "get", fake_get)
         monkeypatch.setattr(db_mod, "register_vector", fake_register_vector)
 
-        cm = db_mod.PgVectorConnection(alias="secondary")
+        cm = models_src.db_inits.tortoise_init.PgVectorConnection(alias="secondary")
         assert cm.raw is None
 
         # Act: enter/exit the context
@@ -116,7 +118,7 @@ class TestPgVectorConnection:
         # we don't care about register_vector here, but keep it async
         monkeypatch.setattr(db_mod, "register_vector", AsyncMock(return_value=None))
 
-        cm = db_mod.PgVectorConnection()
+        cm = models_src.db_inits.tortoise_init.PgVectorConnection()
         with pytest.raises(RuntimeError):
             async with cm:
                 raise RuntimeError("boom")

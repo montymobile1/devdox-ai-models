@@ -81,7 +81,7 @@ class Repo(Model):
         null=True, description="Error message if processing failed"
     )
     last_commit = fields.CharField(max_length=255, default="")
-    status = fields.CharField(max_length=255, default=StatusTypes.PENDING)
+    status = fields.CharField(max_length=255, default=StatusTypes.PENDING.value)
 
     repo_alias_name = fields.CharField(
         max_length=100,

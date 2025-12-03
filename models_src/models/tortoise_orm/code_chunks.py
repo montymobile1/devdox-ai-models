@@ -20,7 +20,7 @@ class CodeChunks(Model):
 
     embedding = VectorField(vector_size=768, null=True)
 
-    metadata = fields.JSONField(default=dict)
+    metadata = fields.JSONField(default={})
     file_name = fields.CharField(
         required=True, max_length=255, null=False, description="File name"
     )
