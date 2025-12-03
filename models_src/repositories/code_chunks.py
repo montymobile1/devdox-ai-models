@@ -127,13 +127,10 @@ class TortoiseCodeChunksBackend(ICodeChunksStore):
         return self.model_mapper.map_model_to_dataclass(data, CodeChunksResponseDTO)
     
     async def bulk_save(self, create_model: list[CodeChunksRequestDTO]) -> List[CodeChunksResponseDTO]:
-        try:
-            objs = [
+        objs = [
                 self.model(**asdict(r))
                 for r in create_model
             ]
-        except Exception as e:
-            print(e)
         
         _ = await self.model.bulk_create(objs, batch_size=1000)
         
