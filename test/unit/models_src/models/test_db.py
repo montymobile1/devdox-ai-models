@@ -1,4 +1,3 @@
-# tests/unit/src/models/test_db_utils_unit.py
 import sys
 import types
 import pytest
@@ -22,7 +21,7 @@ if "pgvector.asyncpg" not in sys.modules:
     sys.modules["pgvector.asyncpg"] = pgv_asyncpg_stub
 
 # ---- Now import the module under test
-import models_src.models.db as db_mod
+import models_src.db_inits.tortoise_init as db_mod
 
 
 class TestInitCloseDb:
