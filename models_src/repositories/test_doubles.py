@@ -3,6 +3,7 @@ import inspect
 import uuid
 from typing import Any, Callable, Dict, List, Tuple, Union
 
+from models_src import InMemoryApiLogBackend
 from models_src.dto.git_label import GitLabelResponseDTO
 
 from models_src.dto.user import UserResponseDTO
@@ -166,6 +167,7 @@ class AnyInMemory:
     store_cls = None
 
 InMemoryBackend = Union[
+    InMemoryApiLogBackend,
     InMemoryApiKeyBackend,
     InMemoryCodeChunksBackend,
     InMemoryGitLabelBackend,

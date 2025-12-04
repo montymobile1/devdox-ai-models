@@ -2,7 +2,7 @@ import uuid
 
 import pymongo
 from beanie import Document, Indexed
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from models_src.models.beanie_odm.document_extra.timestamp import TimestampAuditMixin
 
@@ -59,3 +59,13 @@ class User(TimestampAuditMixin, Document):
 
     def __repr__(self) -> str:
         return self.__str__()
+
+class UserSimpleProjection(BaseModel):
+    id: uuid.UUID = Field(alias="_id")
+    encryption_salt: str
+
+    # optional, but nice to have:
+    model_config = ConfigDict(
+        populate_by_name=True,  # can also construct with id=...
+        extra="ignore",         # ignore any extra fields Mongo might send
+    )

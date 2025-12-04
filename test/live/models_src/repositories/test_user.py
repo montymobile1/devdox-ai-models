@@ -4,11 +4,12 @@ import uuid
 
 import pytest
 import pytest_asyncio
+from beanie.exceptions import DocumentNotFound
 from pymongo.errors import DuplicateKeyError
-from tortoise.exceptions import IntegrityError
+from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from models_src.dto.user import UserResponseDTO
-from models_src.exceptions.local_exception import InMemoryDuplicate
+from models_src.exceptions.local_exception import InMemoryDuplicate, InMemoryNotFound
 from models_src.repositories.user import (
     BeanieUserBackend, InMemoryUserBackend, IUserStore, TortoiseUserBackend,
 )
@@ -16,7 +17,7 @@ from test.conftest import _make_user_request
 
 # All backends should raise one of these when user_id uniqueness is violated.
 UNIQUE_EXCEPTIONS = (DuplicateKeyError, IntegrityError, InMemoryDuplicate)
-
+DOES_NOT_EXIST_EXCEPTIONS = (DoesNotExist, DocumentNotFound, InMemoryNotFound)
 
 class TestUserBackend:
     """
@@ -34,7 +35,7 @@ class TestUserBackend:
         the appropriate repo instance (Mongo, Postgres, or InMemory).
         """
         raise NotImplementedError
-
+    
     # =================================================================
     # save()
     # =================================================================
@@ -135,7 +136,7 @@ class TestUserBackend:
         """
         increment_token_usage should:
         - return 1 when a user exists
-        - increment token_used
+        - increment token_usedf
         - keep created_at unchanged
         - bump updated_at forward
         """
@@ -172,7 +173,26 @@ class TestUserBackend:
         """increment_token_usage should return 0 when the user_id does not exist."""
         updated_count = await repo.increment_token_usage(user_id="does-not-exist", tokens_used=10)
         assert updated_count == 0
-
+        
+        
+    async def test_get_encryption_salt(self, repo):
+        
+        req = _make_user_request(
+            user_id="beanie-user-3",
+            email="exists@example.com",
+            role="user",
+        )
+        await repo.save(req)
+        
+        encryption_salt = await repo.get_encryption_salt("beanie-user-3")
+        
+        
+        assert encryption_salt
+        assert isinstance(encryption_salt, str)
+        
+        with pytest.raises(DOES_NOT_EXIST_EXCEPTIONS):
+            await repo.get_encryption_salt("missing-user")
+    
 @pytest.mark.asyncio
 class TestTortoiseUserBackend(TestUserBackend):
     __test__ = True

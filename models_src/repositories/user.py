@@ -4,17 +4,20 @@ from abc import abstractmethod
 from dataclasses import asdict
 from typing import Any, Optional, Protocol
 
+from beanie.exceptions import DocumentNotFound
 from beanie.odm.operators.update.general import Inc, Set
+from models_src.exceptions import exception_constants
 from pymongo.errors import DuplicateKeyError
-from tortoise.exceptions import IntegrityError
+from tortoise.exceptions import DoesNotExist, IntegrityError
 from tortoise.expressions import F
 
 from models_src.exceptions.utils import internal_error, UserErrors
 from models_src.dto.user import UserRequestDTO, UserResponseDTO
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
-from models_src.exceptions.local_exception import InMemoryDuplicate
+from models_src.exceptions.local_exception import InMemoryDuplicate, InMemoryNotFound, RecordNotFound
 from models_src.models.tortoise_orm.user import User
-from models_src.models.beanie_odm.user_document import User as UserDocument
+from models_src.models.beanie_odm.user_document import User as UserDocument, UserSimpleProjection
+
 
 # --------------------------------------------------
 # Specification
@@ -24,7 +27,10 @@ class IUserStore(Protocol):
 
     @abstractmethod
     async def find_by_user_id(self, user_id: str) -> Optional[UserResponseDTO]: ...
-
+    
+    @abstractmethod
+    async def get_encryption_salt(self, user_id: str) -> str | None: ...
+    
     @abstractmethod
     async def save(self, user_model: UserRequestDTO) -> UserResponseDTO: ...
 
@@ -67,7 +73,16 @@ class UserStore(IUserStore):
             return False
         
         return await self._storage_backend.exists_by_user_id(user_id=user_id)
-
+    
+    async def get_encryption_salt(self, user_id: str) -> str | None:
+        if not user_id or not user_id.strip():
+            raise RecordNotFound(reason=exception_constants.INVALID_PASSED_FIELDS)
+        
+        try:
+            return await self._storage_backend.get_encryption_salt(user_id=user_id)
+        except (DoesNotExist, DocumentNotFound, InMemoryNotFound) as e:
+            raise RecordNotFound() from e
+    
 # --------------------------------------------------
 # Storage Backend
 # --------------------------------------------------
@@ -100,7 +115,11 @@ class TortoiseUserBackend(IUserStore):
         )
 
         return mapped_model_to_dto
-
+    
+    async def get_encryption_salt(self, user_id: str) -> str | None:
+        instance = await self.model.get(user_id=user_id)
+        return instance.encryption_salt
+    
     async def increment_token_usage(self, user_id: str, tokens_used: int) -> int:
         
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -150,7 +169,15 @@ class BeanieUserBackend(IUserStore):
     
     async def exists_by_user_id(self, user_id: str) -> bool:
         return await self.model.find(self.model.user_id == user_id).exists()
-
+    
+    async def get_encryption_salt(self, user_id: str) -> str | None:
+        enc_salt = await self.model.find_one(self.model.user_id == user_id).project(UserSimpleProjection)
+        
+        if not enc_salt:
+            raise DocumentNotFound(exception_constants.RECORD_NOT_FOUND)
+        
+        return enc_salt.encryption_salt
+    
 class InMemoryUserBackend(IUserStore):
     
     store_cls = UserStore
@@ -214,7 +241,16 @@ class InMemoryUserBackend(IUserStore):
         res = self.get_data_store(user_id=user_id)
         
         return True if res else False
-
+    
+    async def get_encryption_salt(self, user_id: str) -> str | None:
+        res = self.get_data_store(user_id=user_id)
+        
+        if not res:
+            raise InMemoryNotFound(exception_constants.RECORD_NOT_FOUND)
+        
+        return res.encryption_salt
+    
+    
 # --------------------------------------------------
 # Factory
 # --------------------------------------------------
