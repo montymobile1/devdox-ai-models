@@ -1,6 +1,6 @@
 import datetime
 
-from models_src.models.api_log_document import ApiLog
+from models_src.models.beanie_odm.api_log_document import ApiLog
 
 
 def test_document_str():

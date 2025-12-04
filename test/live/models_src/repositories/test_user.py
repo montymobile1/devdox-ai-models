@@ -6,10 +6,10 @@ import pytest
 import pytest_asyncio
 from beanie.exceptions import DocumentNotFound
 from pymongo.errors import DuplicateKeyError
-from tortoise.exceptions import IntegrityError
+from tortoise.exceptions import DoesNotExist, IntegrityError
 
 from models_src.dto.user import UserResponseDTO
-from models_src.exceptions.local_exception import InMemoryDuplicate
+from models_src.exceptions.local_exception import InMemoryDuplicate, InMemoryNotFound
 from models_src.repositories.user import (
     BeanieUserBackend, InMemoryUserBackend, IUserStore, TortoiseUserBackend,
 )
@@ -17,7 +17,7 @@ from test.conftest import _make_user_request
 
 # All backends should raise one of these when user_id uniqueness is violated.
 UNIQUE_EXCEPTIONS = (DuplicateKeyError, IntegrityError, InMemoryDuplicate)
-
+DOES_NOT_EXIST_EXCEPTIONS = (DoesNotExist, DocumentNotFound, InMemoryNotFound)
 
 class TestUserBackend:
     """
@@ -35,7 +35,7 @@ class TestUserBackend:
         the appropriate repo instance (Mongo, Postgres, or InMemory).
         """
         raise NotImplementedError
-
+    
     # =================================================================
     # save()
     # =================================================================
@@ -190,7 +190,7 @@ class TestUserBackend:
         assert encryption_salt
         assert isinstance(encryption_salt, str)
         
-        with pytest.raises(DocumentNotFound):
+        with pytest.raises(DOES_NOT_EXIST_EXCEPTIONS):
             await repo.get_encryption_salt("missing-user")
     
 @pytest.mark.asyncio
