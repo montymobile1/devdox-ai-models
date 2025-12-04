@@ -3,13 +3,23 @@ MISSING_LABEL_LOG_MESSAGE = "label was None when trying to fetch Git labels"
 
 MISSING_USER_ID_LOG_MESSAGE = "user_id was None when trying to fetch Git labels"
 MISSING_API_KEY_USER_ID_LOG_MESSAGE = "user_id was None when trying to fetch Api Keys"
+MISSING_REPO_USER_ID_LOG_MESSAGE = "user_id was None when trying to fetch Repo"
 MISSING_USER_ID_TITLE = "MISSING_USER_ID"
 
 LABEL_ALREADY_EXISTS_TITLE = "GIT_LABEL_ALREADY_EXISTS"
 LABEL_ALREADY_EXISTS_MESSAGE = "Git Label Already Exists"
+
+USER_ALREADY_EXISTS_TITLE = "USER_ALREADY_EXISTS"
+USER_ALREADY_EXISTS_MESSAGE = "User Already Exists"
 
 REPOSITORY_DOESNT_EXIST_TITLE = "REPO_NOT_EXIST"
 REPOSITORY_DOESNT_EXIST_MESSAGE = "Repository doesn't exist"
 
 REPO_ALREADY_EXISTS_TITLE = "REPO_ALREADY_EXISTS"
 REPO_ALREADY_EXISTS_MESSAGE = "Repo Already Exists"
+
+JOB_ALREADY_CLAIMED = "Queue Job Already Claimed"
+
+EMBEDDINGS_INVALID_SIZE = "embedding must have length {EMBED_DIM}, got {ARRAY_LENGTH}"
+
+RECORD_NOT_FOUND = "Record Not Found"

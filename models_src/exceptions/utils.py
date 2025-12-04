@@ -13,7 +13,7 @@ from models_src.exceptions.exception_constants import (
     REPO_ALREADY_EXISTS_MESSAGE,
     REPO_ALREADY_EXISTS_TITLE,
     REPOSITORY_DOESNT_EXIST_MESSAGE,
-    REPOSITORY_DOESNT_EXIST_TITLE,
+    REPOSITORY_DOESNT_EXIST_TITLE, USER_ALREADY_EXISTS_MESSAGE, USER_ALREADY_EXISTS_TITLE,
 )
 
 
@@ -52,12 +52,25 @@ class RepoErrors(Enum):
         "error_type": REPOSITORY_DOESNT_EXIST_TITLE,
         "log_message": REPOSITORY_DOESNT_EXIST_MESSAGE,
     }
-
+    
     REPOSITORY_ALREADY_EXIST = {
         "error_type": REPO_ALREADY_EXISTS_TITLE,
         "log_message": REPO_ALREADY_EXISTS_MESSAGE,
         "log_level": logging.ERROR,
     }
+    
+    MISSING_USER_ID = {
+        "error_type": MISSING_USER_ID_TITLE,
+        "log_message": MISSING_API_KEY_USER_ID_LOG_MESSAGE,
+    }
+
+class UserErrors(Enum):
+    USER_ALREADY_EXIST = {
+        "error_type": USER_ALREADY_EXISTS_TITLE,
+        "log_message": USER_ALREADY_EXISTS_MESSAGE,
+        "log_level": logging.ERROR,
+    }
+
 
 
 class ApiKeysErrors(Enum):

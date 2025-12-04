@@ -1,6 +1,7 @@
 from dataclasses import asdict, fields
 from typing import List, Optional, Type
 
+from beanie import Document
 from tortoise import Model
 
 
@@ -22,8 +23,11 @@ class DataclassMapper:
         if source_target_mapping:
             for old_key, new_key in source_target_mapping.items():
                 source_dict[new_key] = source_dict.pop(old_key)
-
-        return target_cls(**source_dict)
+        
+        target_cls_fields = {f.name for f in fields(target_cls)}
+        
+        filtered_data = {k: v for k, v in source_dict.items() if k in target_cls_fields}
+        return target_cls(**filtered_data)
 
 
 class TortoiseModelMapper:
@@ -54,6 +58,41 @@ class TortoiseModelMapper:
 
         # Pre-fetch model field names ONCE
         model_field_names = sources[0]._meta.fields_map.keys()
+        dataclass_field_names = {f.name for f in fields(target_cls)}
+        intersect_fields = model_field_names & dataclass_field_names
+
+        # Bulk extract raw dicts
+        raw_dicts = [
+            {field: getattr(obj, field) for field in intersect_fields}
+            for obj in sources
+        ]
+
+        # Bulk construct dataclasses
+        return [target_cls(**d) for d in raw_dicts]
+
+class BeanieModelMapper:
+
+    @staticmethod
+    def map_document_to_dataclass[target_type](
+        source: Document, target_cls: Type[target_type]
+    ) -> Optional[target_type]:
+        if not source or not target_cls:
+            return None
+        
+        target_fields = {f.name for f in fields(target_cls)}
+        
+        data = source.model_dump(include=target_fields)
+        return target_cls(**data)
+
+    @staticmethod
+    def map_documents_to_dataclasses_list[target_type](
+        sources: List[Document], target_cls: Type[target_type]
+    ) -> List[target_type]:
+        if not sources or not target_cls:
+            return []
+
+        # Pre-fetch model field names ONCE
+        model_field_names = sources[0].model_dump().keys()
         dataclass_field_names = {f.name for f in fields(target_cls)}
         intersect_fields = model_field_names & dataclass_field_names
 

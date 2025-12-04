@@ -3,7 +3,7 @@ import datetime
 import uuid
 from typing import Optional
 
-from models_src.models import QRegistryStat
+from models_src.models.common.queue_job_claim_registry_enums import QRegistryStat
 
 
 @dataclasses.dataclass
@@ -16,6 +16,7 @@ class QueueProcessingRegistryResponseDTO:
     claimed_by: Optional[str] = None
     previous_message_id: Optional[uuid.UUID] = None
     claimed_at: Optional[datetime.datetime] = None
+    created_at: Optional[datetime.datetime] = None
     updated_at: Optional[datetime.datetime] = None
 
 
@@ -28,4 +29,3 @@ class QueueProcessingRegistryRequestDTO:
     claimed_by: Optional[str] = None
     previous_message_id: Optional[uuid.UUID] = None
     claimed_at: Optional[datetime.datetime] = None
-    updated_at: Optional[datetime.datetime] = None
