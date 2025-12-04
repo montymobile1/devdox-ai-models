@@ -7,6 +7,7 @@ processing_queue_name: str = "processing"
 
 class ProcessingJobType(StrEnum):
     ANALYZE = "analyze"
+    REANALYZE = "reanalyze"
     PROCESSING = "processing"
 
 class ProcessingPriority(IntEnum):
