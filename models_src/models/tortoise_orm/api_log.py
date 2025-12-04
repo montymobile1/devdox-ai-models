@@ -1,8 +1,7 @@
 import datetime
 import uuid
 
-from tortoise import fields
-from tortoise.models import Model
+from tortoise import fields, Model
 
 class ApiLog(Model):
 	id: uuid.UUID = fields.UUIDField(primary_key=True, default=uuid.uuid4)
