@@ -13,7 +13,7 @@ from .dto.user import UserRequestDTO, UserResponseDTO
 from .exceptions.base_exceptions import DevDoxModelsException
 
 # exceptions
-from .exceptions.local_exception import JobAlreadyClaimed
+from .exceptions.local_exception import JobAlreadyClaimed, RecordNotFound
 from .exceptions import exception_constants
 from .exceptions.utils import GitLabelErrors, internal_error, RepoErrors
 from .models.beanie_odm.code_chunks_document import EMBED_DIM
@@ -73,7 +73,7 @@ __all__ = [
 	"GenericFakeStore", "GenericStubStore",
 	
 	# exceptions & error handling
-	"DevDoxModelsException", "JobAlreadyClaimed", "exception_constants", "RepoErrors", "GitLabelErrors", "internal_error", "RecordNotFound"
+	"DevDoxModelsException", "JobAlreadyClaimed", "exception_constants", "RepoErrors", "GitLabelErrors", "internal_error", "RecordNotFound",
 	
 	# testing queue
 	"testing_queue_name", "TestingJobType", "TestingPriority", "TestingDatabaseType", "LoadTestRequest", "LoadLocustPayload", "TestingQPayload",
