@@ -16,9 +16,7 @@ from models_src.dto.user import UserRequestDTO, UserResponseDTO
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
 from models_src.exceptions.local_exception import InMemoryDuplicate, InMemoryNotFound, RecordNotFound
 from models_src.models.tortoise_orm.user import User
-from models_src.models.beanie_odm.user_document import User as UserDocument
-
-from models_src.models.user_document import UserSimpleProjection
+from models_src.models.beanie_odm.user_document import User as UserDocument, UserSimpleProjection
 
 
 # --------------------------------------------------

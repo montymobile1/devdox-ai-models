@@ -6,8 +6,8 @@ from typing import Any, Protocol
 
 from models_src.dto.api_log import ApiLogRequestDTO, ApiLogResponseDTO
 from models_src.dto.utils import BeanieModelMapper, TortoiseModelMapper
-from models_src.models.api_log import ApiLog
-from models_src.models.api_log_document import ApiLog as ApiLogDocument
+from models_src.models.tortoise_orm.api_log import ApiLog
+from models_src.models.beanie_odm.api_log_document import ApiLog as ApiLogDocument
 
 # --------------------------------------------------
 # Specification

@@ -1,19 +1,25 @@
-import datetime
 import uuid
 
 import pytest
+import pytest_asyncio
 
 from models_src import ApiLogResponseDTO
-from models_src.repositories.api_log import BeanieApiLogBackend
+from models_src.repositories.api_log import BeanieApiLogBackend, IApiLogStore, InMemoryApiLogBackend, \
+	TortoiseApiLogBackend
 from test.conftest import _make_api_log_request
 
-
-@pytest.mark.asyncio
-class TestBeanieApiLogBackend:
+class TestApiLogBackend:
+	__test__ = False
 	
-	beanie_store = BeanieApiLogBackend
+	@pytest_asyncio.fixture
+	async def repo(self) -> IApiLogStore:
+		"""
+		Concrete subclasses must override this to return
+		the appropriate repo instance (Mongo or Postgres).
+		"""
+		raise NotImplementedError
 	
-	async def test_save(self, db_client):
+	async def test_save(self, repo):
 		# Arrange
 		req_full_with_dict_req_res = _make_api_log_request(
 			request_body= {
@@ -38,9 +44,9 @@ class TestBeanieApiLogBackend:
 		
 		
 		# Act
-		saved_full_with_dict_req_res = await self.beanie_store().save(req_full_with_dict_req_res)
-		saved_full_with_list_req_res = await self.beanie_store().save(req_full_with_list_req_res)
-		saved_full_with_only_required = await self.beanie_store().save(req_full_with_only_required)
+		saved_full_with_dict_req_res = await repo.save(req_full_with_dict_req_res)
+		saved_full_with_list_req_res = await repo.save(req_full_with_list_req_res)
+		saved_full_with_only_required = await repo.save(req_full_with_only_required)
 		
 		# ASSERT
 		assert isinstance(saved_full_with_dict_req_res, ApiLogResponseDTO)
@@ -99,3 +105,27 @@ class TestBeanieApiLogBackend:
 		
 		assert saved_full_with_only_required.created_at
 		assert saved_full_with_only_required.updated_at
+
+@pytest.mark.asyncio
+class TestTortoiseApiLogBackend(TestApiLogBackend):
+	__test__ = True
+	
+	@pytest_asyncio.fixture
+	async def repo(self, postgresql_client):
+		return TortoiseApiLogBackend()
+
+@pytest.mark.asyncio
+class TestBeanieApiKeyBackend(TestApiLogBackend):
+	__test__ = True
+	
+	@pytest_asyncio.fixture
+	async def repo(self, db_client):
+		return BeanieApiLogBackend()
+
+@pytest.mark.asyncio
+class TestInMemoryApiLogBackend(TestApiLogBackend):
+	__test__ = True
+	
+	@pytest_asyncio.fixture
+	async def repo(self):
+		return InMemoryApiLogBackend()
