@@ -108,6 +108,7 @@ def _make_repo_request(
     visibility: str | None = None,
     token_id: str | None = None,
     status: str = StatusTypes.PENDING,
+    repo_parent_id: list[str] | None = None,
 ) -> RepoRequestDTO:
     return RepoRequestDTO(
         user_id=user_id,
@@ -124,6 +125,7 @@ def _make_repo_request(
         visibility=visibility,
         token_id=token_id,
         status=status,
+        repo_parent_id=repo_parent_id
     )
 
 

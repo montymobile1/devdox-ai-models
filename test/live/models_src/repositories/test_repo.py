@@ -19,7 +19,7 @@ UNIQUE_EXCEPTIONS = (DuplicateKeyError, IntegrityError)
 
 class TestRepoBackend:
     __test__ = False
-    
+
     @pytest_asyncio.fixture
     async def repo(self) -> IRepoStore:
         raise NotImplementedError
@@ -292,7 +292,7 @@ class TestRepoBackend:
         assert updated == 0
 
     # =================================================================
-    # find_by_user_and_path / find_by_user_and_alias_name
+    # find_by_user_and_path
     # =================================================================
 
     async def test_find_by_user_and_path_should_return_repo_when_exists(
@@ -321,7 +321,11 @@ class TestRepoBackend:
             relative_path="/does/not/exist",
         )
         assert found is None
-
+    
+    # =================================================================
+    # find_by_user_and_alias_name
+    # =================================================================
+    
     async def test_find_by_user_and_alias_name_should_return_repo_when_exists(
         self, repo: IRepoStore
     ):
@@ -395,6 +399,157 @@ class TestRepoBackend:
         assert exc.error_type == err["error_type"]
         assert exc.user_message == err["log_message"]
         assert exc.log_message == err["log_message"]
+    
+    # =================================================================
+    # find_by_user_and_path
+    # =================================================================
+    async def test_find_by_user_and_path(self, repo: IRepoStore):
+        user_id = "user-8"
+        
+        saved = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="p1",
+                repo_name="p1",
+                html_url="https://g.com/p1",
+                repo_alias_name="alias-p1",
+                relative_path="/users/u/p1",
+            )
+        )
+        
+        result_path = await repo.find_by_user_and_path(user_id=user_id, relative_path="/users/u/p1")
+        assert result_path is not None
+        assert result_path.id == saved.id
+    
+    # =================================================================
+    # update_repo_parent_id
+    # =================================================================
+    async def test_update_repo_parent_id(self, repo: IRepoStore):
+        user_id = "user-8"
+        
+        saved_1_base = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="p1",
+                repo_name="p1",
+                html_url="https://g.com/p1",
+                repo_alias_name="alias-p1"
+            )
+        )
+        
+        saved_2_with_repo_parent_repo_id = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="p2",
+                repo_name="p2",
+                html_url="https://g.com/p2",
+                repo_alias_name="alias-p2",
+                repo_parent_id=[str(saved_1_base.id)]
+            )
+        )
+        
+        saved_3_no_repo_parent_repo_id = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id="p3",
+                repo_name="p3",
+                html_url="https://g.com/p3",
+                repo_alias_name="alias-p3"
+            )
+        )
+        
+        result_path_when_passing_already_existent_one = await repo.update_repo_parent_id(
+            repo_id=str(saved_2_with_repo_parent_repo_id.id), parent_repo_id=str(saved_1_base.id))
+        
+        result_path_when_passing_to_none_existent_repo_parent_repo_id_x1 = await repo.update_repo_parent_id(
+            repo_id=str(saved_3_no_repo_parent_repo_id.id), parent_repo_id=str(saved_1_base.id))
+        
+        result_path_when_passing_to_none_existent_repo_parent_repo_id_x2 = await repo.update_repo_parent_id(
+            repo_id=str(saved_3_no_repo_parent_repo_id.id), parent_repo_id=str(saved_1_base.id))
+        
+        result_path_when_passing_to_none_existent_repo_parent_repo_id_x3 = await repo.update_repo_parent_id(
+            repo_id=str(saved_3_no_repo_parent_repo_id.id), parent_repo_id=str(saved_2_with_repo_parent_repo_id.id))
+        
+        assert result_path_when_passing_already_existent_one == 0
+        assert result_path_when_passing_to_none_existent_repo_parent_repo_id_x1 == 1
+        assert result_path_when_passing_to_none_existent_repo_parent_repo_id_x2 == 0
+        assert result_path_when_passing_to_none_existent_repo_parent_repo_id_x3 == 1
+    
+    # =================================================================
+    # find_all_by_user_id_and_html_urls
+    # =================================================================
+    
+    async def test_find_all_by_user_id_and_html_urls(self, repo: IRepoStore):
+        user_id = "beanie-user-1"
+        user_id_2 = "beanie-user-2"
+        
+        s1 = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id=f"gid-{user_id}-1",
+                repo_name=f"test-repo-{user_id}-1",
+                html_url=f"https://gitlab.com/u/test-repo-{user_id}-1",
+                repo_alias_name=f"alias-{user_id}-1",
+            )
+        )
+        
+        s2 = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id=f"gid-{user_id}-2",
+                repo_name=f"test-repo-{user_id}-2",
+                html_url=f"https://gitlab.com/u/test-repo-{user_id}-2",
+                repo_alias_name=f"alias-{user_id}-2",
+            )
+        )
+        
+        s3 = await repo.save(
+            _make_repo_request(
+                user_id=user_id,
+                repo_id=f"gid-{user_id}-3",
+                repo_name=f"test-repo-{user_id}-3",
+                html_url=f"https://gitlab.com/u/test-repo-{user_id}-3",
+                repo_alias_name=f"alias-{user_id}-3",
+            )
+        )
+        
+        s4 = await repo.save(
+            _make_repo_request(
+                user_id=user_id_2,
+                repo_id=f"gid-{user_id_2}-1",
+                repo_name=f"test-repo-{user_id_2}-1",
+                html_url=f"https://gitlab.com/u/test-repo-{user_id_2}-1",
+                repo_alias_name=f"alias-{user_id_2}-1",
+            )
+        )
+        
+        s5 = await repo.save(
+            _make_repo_request(
+                user_id=user_id_2,
+                repo_id=f"gid-{user_id_2}-2",
+                repo_name=f"test-repo-{user_id_2}-2",
+                html_url=f"https://gitlab.com/u/test-repo-{user_id_2}-2",
+                repo_alias_name=f"alias-{user_id_2}-2",
+            )
+        )
+        
+        html_urls_expected_to_come = set()
+        html_urls_expected_to_come.add(s1.html_url)
+        html_urls_expected_to_come.add(s5.html_url)
+        html_urls_expected_to_come.add(s1.html_url)
+        html_urls_expected_to_come.add("some none existent html_url")
+        
+        result = await repo.find_all_by_user_id_and_html_urls(user_id=user_id, html_urls=html_urls_expected_to_come)
+        returned_result_id = [str(d.id) for d in result]
+        
+        assert result
+        assert len(result) == 1
+        assert str(s1.id) in returned_result_id
+        assert str(s5.id) not in returned_result_id
+        assert str(s2.id) not in returned_result_id
+        assert str(s3.id) not in returned_result_id
+        assert str(s4.id) not in returned_result_id
+    
     
 @pytest.mark.asyncio
 class TestTortoiseRepoBackend(TestRepoBackend):

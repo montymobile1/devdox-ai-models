@@ -36,7 +36,7 @@ class RepoResponseDTO:
     processing_start_time: Optional[datetime.datetime] = None
     processing_end_time: Optional[datetime.datetime] = None
     error_message: Optional[str] = None
-    last_commit: Optional[str] = None
+    last_analyzed_commit: Optional[str] = None
     status: Optional[str] = None
     repo_alias_name: Optional[str] = None
     repo_user_reference: Optional[str] = None
@@ -44,10 +44,10 @@ class RepoResponseDTO:
     repo_author_name: Optional[str] = None
     repo_author_email: Optional[str] = None
     total_embeddings: Optional[int] = None
+    repo_parent_id: Optional[List[str]] = None
 
 @dataclass
 class RepoRequestDTO:
-
     user_id: str
     repo_id: str
     repo_name: str
@@ -71,9 +71,11 @@ class RepoRequestDTO:
     processing_start_time: Optional[datetime.datetime] = None
     processing_end_time: Optional[datetime.datetime] = None
     error_message: Optional[str] = None
-    last_commit: str = ""
+    last_analyzed_commit: str = ""
     status: str = "pending"
     repo_user_reference: Optional[str] = None
     repo_system_reference: Optional[str] = None
     repo_author_name: Optional[str] = None
     repo_author_email: Optional[str] = None
+    repo_parent_id: Optional[List[str]] = None
+

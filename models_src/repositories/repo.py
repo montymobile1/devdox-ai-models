@@ -18,6 +18,8 @@ from models_src.models.common.repo_enums import StatusTypes
 from models_src.models.tortoise_orm.repo import Repo
 from models_src.models.beanie_odm.repo_document import Repo as RepoDocument
 
+from beanie.operators import In
+
 # --------------------------------------------------
 # Specification
 # --------------------------------------------------
@@ -64,7 +66,10 @@ class IRepoStore(Protocol):
             total_chunks: int,
             total_embeddings: int,
     ) -> int: ...
-    
+
+    @abstractmethod
+    async def update_repo_parent_id(self, repo_id: str, parent_repo_id: str) -> int: ...
+
     @abstractmethod
     async def update_repo_system_reference_by_id(
             self, id: str, repo_system_reference: str
@@ -82,7 +87,10 @@ class IRepoStore(Protocol):
     async def find_by_repo_id_user_id(
             self, repo_id: str, user_id: str
     ) -> Optional[RepoResponseDTO]: ...
-
+    
+    @abstractmethod
+    async def find_all_by_user_id_and_html_urls(self, user_id: str, html_urls: set[str]) -> list[RepoResponseDTO]: ...
+    
 # --------------------------------------------------
 # Base Store
 # --------------------------------------------------
@@ -205,7 +213,39 @@ class RepoStore(IRepoStore):
     
     async def find_by_user_and_alias_name(self, user_id: str, repo_alias_name: str) -> Optional[RepoResponseDTO]:
         return await self._storage_backend.find_by_user_and_alias_name(user_id=user_id, repo_alias_name=repo_alias_name)
-
+    
+    async def update_repo_parent_id(self, repo_id: str, parent_repo_id: str) -> int:
+        if (
+                not repo_id
+                or not repo_id.strip()
+                or not parent_repo_id
+                or not parent_repo_id.strip()
+                or repo_id == parent_repo_id
+        ):
+            return -1
+        
+        try:
+            uuid.UUID(repo_id)
+            uuid.UUID(parent_repo_id)
+        except ValueError:
+            return -1
+        
+        return await self._storage_backend.update_repo_parent_id(repo_id=repo_id, parent_repo_id=parent_repo_id)
+    
+    
+    async def find_all_by_user_id_and_html_urls(self, user_id: str, html_urls: set[str]) -> list[RepoResponseDTO]:
+        if not html_urls or None in html_urls:
+            raise internal_error(**RepoErrors.INVALID_HTML_URL.value)
+        
+        for url in html_urls:
+            if not url or not url.strip():
+                raise internal_error(**RepoErrors.INVALID_HTML_URL.value)
+        
+        if not user_id or not user_id.strip():
+            raise internal_error(**RepoErrors.MISSING_USER_ID.value)
+        
+        return await self._storage_backend.find_all_by_user_id_and_html_urls(user_id=user_id, html_urls=html_urls)
+    
 # --------------------------------------------------
 # Storage Backend
 # --------------------------------------------------
@@ -294,7 +334,34 @@ class TortoiseRepoBackend(IRepoStore):
     ) -> Optional[RepoResponseDTO]:
         raw_data = await self.model.filter(user_id=user_id, html_url=html_url).first()
         return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
-    
+
+    async def update_repo_parent_id(self, repo_id: str, parent_repo_id: str) -> int:
+        
+        repos = await self.model.filter(id__in=[uuid.UUID(repo_id), uuid.UUID(parent_repo_id)])
+        
+        found_repo = None
+        found_parent_repo = None
+        for rp in repos:
+            if  repo_id == str(rp.id):
+                found_repo = rp
+            
+            if  parent_repo_id == str(rp.id):
+                found_parent_repo = rp
+            
+            if found_repo and found_parent_repo:
+                break
+        
+        if (not found_repo and not found_parent_repo) or (found_repo.repo_parent_id and (str(found_parent_repo.id) in found_repo.repo_parent_id)):
+            return 0
+        
+        parent_ids = found_repo.repo_parent_id or []
+        
+        parent_ids.append(parent_repo_id)
+        
+        updated_count = await self.model.filter(id=found_repo.id).update(repo_parent_id=parent_ids)
+        
+        return updated_count
+
     async def update_analysis_metadata_by_id(
             self,
             id: str,
@@ -325,14 +392,18 @@ class TortoiseRepoBackend(IRepoStore):
     async def find_by_user_and_path(
             self, user_id: str, relative_path: str
     ) -> RepoResponseDTO | None:
-        raw_data= await Repo.filter(user_id=user_id, relative_path=relative_path).first()
+        raw_data= await self.model.filter(user_id=user_id, relative_path=relative_path).first()
         return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
     
     async def find_by_user_and_alias_name(
             self, user_id: str, repo_alias_name: str
     ) -> RepoResponseDTO:
-        raw_data = await Repo.filter(user_id=user_id, repo_alias_name=repo_alias_name).first()
+        raw_data = await self.model.filter(user_id=user_id, repo_alias_name=repo_alias_name).first()
         return self.model_mapper.map_model_to_dataclass(raw_data, RepoResponseDTO)
+    
+    async def find_all_by_user_id_and_html_urls(self, user_id: str, html_urls: set[str]) -> list[RepoResponseDTO]:
+        raw_data = await self.model.filter(user_id=user_id, html_url__in=html_urls)
+        return self.model_mapper.map_models_to_dataclasses_list(sources=raw_data, target_cls=RepoResponseDTO)
 
 class BeanieRepoBackend(IRepoStore):
     model = RepoDocument
@@ -459,6 +530,39 @@ class BeanieRepoBackend(IRepoStore):
         ).first_or_none()
         return self.model_mapper.map_document_to_dataclass(doc, RepoResponseDTO)
 
+    async def update_repo_parent_id(self, repo_id: str, parent_repo_id: str) -> int:
+        
+        repos = await self.model.find(In(self.model.id, [uuid.UUID(repo_id), uuid.UUID(parent_repo_id)])).to_list()
+        
+        found_repo = None
+        found_parent_repo = None
+        for rp in repos:
+            if  repo_id == str(rp.id):
+                found_repo = rp
+            
+            if  parent_repo_id == str(rp.id):
+                found_parent_repo = rp
+            
+            if found_repo and found_parent_repo:
+                break
+        
+        if (not found_repo and not found_parent_repo) or (found_repo.repo_parent_id and (str(found_parent_repo.id) in found_repo.repo_parent_id)):
+            return 0
+        
+        parent_ids = found_repo.repo_parent_id or []
+        
+        parent_ids.append(parent_repo_id)
+        
+        await found_repo.update(
+            Set({self.model.repo_parent_id: parent_ids})
+        )
+        
+        return  1
+    
+    async def find_all_by_user_id_and_html_urls(self, user_id: str, html_urls: set[str]) -> list[RepoResponseDTO]:
+        raw_data = await self.model.find(self.model.user_id == user_id, In(self.model.html_url, html_urls)).to_list()
+        return self.model_mapper.map_documents_to_dataclasses_list(sources=raw_data, target_cls=RepoResponseDTO)
+    
 class InMemoryRepoBackend(IRepoStore):
     
     store_cls = RepoStore
@@ -671,6 +775,50 @@ class InMemoryRepoBackend(IRepoStore):
                 break
         
         return result
+    
+    def __find_repos(self, all_data, repo_id, parent_repo_id):
+        
+        found_repo = None
+        found_parent_repo = None
+        for d_list in all_data.values():
+            for d in d_list:
+                if d.id == uuid.UUID(repo_id) and not found_repo:
+                    found_repo = d
+                
+                if d.id == uuid.UUID(parent_repo_id) and not found_parent_repo:
+                    found_parent_repo = d
+            
+            if found_repo and found_parent_repo:
+                break
+        
+        return found_repo, found_parent_repo
+    
+    async def update_repo_parent_id(self, repo_id: str, parent_repo_id: str) -> int:
+        all_data = self.data_store
+        
+        found_repo, found_parent_repo = self.__find_repos(all_data=all_data, repo_id=repo_id, parent_repo_id=parent_repo_id)
+
+        if (not found_repo and not found_parent_repo) or (found_repo.repo_parent_id and (str(found_parent_repo.id) in found_repo.repo_parent_id)):
+            return 0
+        
+        if not found_repo.repo_parent_id:
+            found_repo.repo_parent_id = []
+        
+        found_repo.repo_parent_id.append(parent_repo_id)
+        
+        return 1
+    
+    async def find_all_by_user_id_and_html_urls(self, user_id: str, html_urls: set[str]) -> list[RepoResponseDTO]:
+        
+        data = self.get_data_store(user_id=user_id)
+        
+        filtered_by_id = []
+        for subdata in data:
+            if subdata.html_url in html_urls:
+                filtered_by_id.append(subdata)
+        
+        return filtered_by_id
+
 
 # --------------------------------------------------
 # Factory

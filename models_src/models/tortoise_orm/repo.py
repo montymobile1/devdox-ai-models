@@ -80,7 +80,7 @@ class Repo(Model):
     error_message = fields.TextField(
         null=True, description="Error message if processing failed"
     )
-    last_commit = fields.CharField(max_length=255, default="")
+    last_analyzed_commit = fields.CharField(max_length=255, default="")
     status = fields.CharField(max_length=255, default=StatusTypes.PENDING.value)
 
     repo_alias_name = fields.CharField(
@@ -107,6 +107,7 @@ class Repo(Model):
         max_length=255,
         description="The email address of the user who owns this repository",
     )
+    repo_parent_id = fields.JSONField(null=True)  # Stores list of IDs
 
     class Meta:
         table = "repo"

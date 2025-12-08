@@ -23,6 +23,8 @@ class Repo(TimestampAuditMixin, Document):
     # Basic info
     repo_id: str = Field(..., max_length=255, description="Repository ID from the Git provider")
     repo_name: str = Field(..., max_length=255, description="Repository name")
+    repo_parent_id: Optional[list[str]] = Field(None, description="List of parent repository IDs")
+
     description: Optional[str] = Field(None, description="Repository description")
     html_url: str = Field(..., max_length=500, description="Repository URL")
 
@@ -67,7 +69,7 @@ class Repo(TimestampAuditMixin, Document):
 
     error_message: Optional[str] = Field(None, description="Error message if processing failed")
 
-    last_commit: str = Field(default="", max_length=255)
+    last_analyzed_commit: str = Field(default="", max_length=255)
     status: str = Field(default=StatusTypes.PENDING, max_length=255)
 
     # Local/system references
