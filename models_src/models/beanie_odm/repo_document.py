@@ -69,7 +69,7 @@ class Repo(TimestampAuditMixin, Document):
 
     error_message: Optional[str] = Field(None, description="Error message if processing failed")
 
-    last_commit: str = Field(default="", max_length=255)
+    last_analyzed_commit: str = Field(default="", max_length=255)
     status: str = Field(default=StatusTypes.PENDING, max_length=255)
 
     # Local/system references

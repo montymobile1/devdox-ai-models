@@ -36,7 +36,7 @@ class RepoResponseDTO:
     processing_start_time: Optional[datetime.datetime] = None
     processing_end_time: Optional[datetime.datetime] = None
     error_message: Optional[str] = None
-    last_commit: Optional[str] = None
+    last_analyzed_commit: Optional[str] = None
     status: Optional[str] = None
     repo_alias_name: Optional[str] = None
     repo_user_reference: Optional[str] = None
@@ -71,7 +71,7 @@ class RepoRequestDTO:
     processing_start_time: Optional[datetime.datetime] = None
     processing_end_time: Optional[datetime.datetime] = None
     error_message: Optional[str] = None
-    last_commit: str = ""
+    last_analyzed_commit: str = ""
     status: str = "pending"
     repo_user_reference: Optional[str] = None
     repo_system_reference: Optional[str] = None
